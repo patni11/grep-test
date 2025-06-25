@@ -1,36 +1,197 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Next.js + MongoDB + GitHub Auth
 
-## Getting Started
+A modern full-stack web application built with Next.js 14, MongoDB, and GitHub authentication using NextAuth.js.
 
-First, run the development server:
+## Features
+
+- 🔐 **GitHub OAuth Authentication** - Secure login with GitHub using NextAuth.js
+- 📊 **MongoDB Integration** - Data persistence with MongoDB and session management
+- ⚡ **Next.js 14 App Router** - Latest Next.js with App Router and React Server Components
+- 🎨 **Modern UI with Tailwind CSS** - Beautiful, responsive design
+- 🔒 **Session Management** - Persistent user sessions with database storage
+- 📱 **Responsive Design** - Mobile-first responsive interface
+
+## Tech Stack
+
+- **Framework**: Next.js 14 with TypeScript
+- **Database**: MongoDB with MongoDB Adapter
+- **Authentication**: NextAuth.js with GitHub Provider
+- **Styling**: Tailwind CSS
+- **Language**: TypeScript
+
+## Prerequisites
+
+Before running this application, you need:
+
+1. **Node.js** (v18 or higher)
+2. **MongoDB** (local installation or MongoDB Atlas account)
+3. **GitHub OAuth App** for authentication
+
+## Setup Instructions
+
+### 1. Clone and Install Dependencies
+
+```bash
+git clone <your-repo-url>
+cd greptile
+npm install
+```
+
+### 2. MongoDB Setup
+
+#### Option A: Local MongoDB
+1. Install MongoDB locally
+2. Start MongoDB service
+3. Create a database named `greptile`
+
+#### Option B: MongoDB Atlas (Recommended)
+1. Create an account at [MongoDB Atlas](https://www.mongodb.com/cloud/atlas)
+2. Create a new cluster
+3. Get your connection string
+
+### 3. GitHub OAuth Setup
+
+1. Go to GitHub Settings > Developer settings > OAuth Apps
+2. Click "New OAuth App"
+3. Fill in the application details:
+   - **Application name**: Your app name
+   - **Homepage URL**: `http://localhost:3000`
+   - **Authorization callback URL**: `http://localhost:3000/api/auth/callback/github`
+4. Copy the **Client ID** and **Client Secret**
+
+### 4. Environment Variables
+
+Create a `.env.local` file in the root directory:
+
+```env
+# NextAuth Configuration
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=your-nextauth-secret-key-here
+
+# GitHub OAuth Configuration
+GITHUB_CLIENT_ID=your-github-client-id
+GITHUB_CLIENT_SECRET=your-github-client-secret
+
+# MongoDB Configuration
+MONGODB_URI=mongodb://localhost:27017/greptile
+# For MongoDB Atlas, use: mongodb+srv://username:password@cluster.mongodb.net/greptile?retryWrites=true&w=majority
+
+# JWT Secret
+JWT_SECRET=your-jwt-secret-key
+```
+
+**Important**: Replace the placeholder values with your actual credentials:
+- Generate a random string for `NEXTAUTH_SECRET` (32+ characters)
+- Use your GitHub OAuth app credentials
+- Use your MongoDB connection string
+- Generate a random string for `JWT_SECRET`
+
+### 5. Run the Application
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to see the application.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Project Structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+src/
+├── app/
+│   ├── api/auth/[...nextauth]/    # NextAuth.js API routes
+│   ├── auth/                      # Authentication pages
+│   │   ├── signin/               # Custom sign-in page
+│   │   └── error/                # Authentication error page
+│   ├── layout.tsx                # Root layout with providers
+│   └── page.tsx                  # Homepage
+├── components/
+│   └── SessionProvider.tsx       # NextAuth session provider wrapper
+├── lib/
+│   └── mongodb.ts               # MongoDB connection utility
+└── types/
+    └── next-auth.d.ts           # NextAuth type extensions
+```
 
-## Learn More
+## API Routes
 
-To learn more about Next.js, take a look at the following resources:
+- `GET/POST /api/auth/[...nextauth]` - NextAuth.js authentication endpoints
+- Built-in NextAuth.js routes for sign-in, sign-out, and callbacks
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Authentication Flow
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. User clicks "Sign In with GitHub"
+2. Redirected to GitHub OAuth
+3. User authorizes the application
+4. GitHub redirects back with authorization code
+5. NextAuth.js exchanges code for access token
+6. User session is created and stored in MongoDB
+7. User is redirected to the homepage
 
-## Deploy on Vercel
+## Database Schema
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+NextAuth.js automatically creates the following collections in MongoDB:
+- `accounts` - OAuth account information
+- `sessions` - User session data
+- `users` - User profile information
+- `verification_tokens` - Email verification tokens
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Deployment
+
+### Environment Variables for Production
+
+Update your `.env.local` (or deployment environment) with production values:
+
+```env
+NEXTAUTH_URL=https://your-domain.com
+NEXTAUTH_SECRET=your-production-secret
+GITHUB_CLIENT_ID=your-production-github-client-id
+GITHUB_CLIENT_SECRET=your-production-github-client-secret
+MONGODB_URI=your-production-mongodb-uri
+```
+
+### Deploy to Vercel
+
+1. Push your code to GitHub
+2. Connect your repository to [Vercel](https://vercel.com)
+3. Add environment variables in Vercel dashboard
+4. Deploy!
+
+## Troubleshooting
+
+### Common Issues
+
+1. **MongoDB Connection Error**
+   - Check your `MONGODB_URI` is correct
+   - Ensure MongoDB is running (if local)
+   - Check network access (if using Atlas)
+
+2. **GitHub OAuth Error**
+   - Verify `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET`
+   - Check OAuth app callback URL matches your domain
+   - Ensure `NEXTAUTH_URL` is correct
+
+3. **NextAuth Session Error**
+   - Verify `NEXTAUTH_SECRET` is set
+   - Check if MongoDB collections are created properly
+
+### Environment Variables
+
+Make sure all required environment variables are set:
+- `NEXTAUTH_URL`
+- `NEXTAUTH_SECRET`
+- `GITHUB_CLIENT_ID`
+- `GITHUB_CLIENT_SECRET`
+- `MONGODB_URI`
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
+
+## License
+
+This project is licensed under the MIT License.
