@@ -1,7 +1,7 @@
 import NextAuth from 'next-auth'
 import { NextAuthOptions } from 'next-auth'
 import GithubProvider from 'next-auth/providers/github'
-import { MongoDBAdapter } from '@next-auth/mongodb-adapter'
+import { MongoDBAdapter } from '@auth/mongodb-adapter'
 import clientPromise from '@/lib/mongodb'
 
 export const authOptions: NextAuthOptions = {
@@ -32,10 +32,6 @@ export const authOptions: NextAuthOptions = {
     strategy: 'database',
   },
   secret: process.env.NEXTAUTH_SECRET,
-  pages: {
-    signIn: '/auth/signin',
-    error: '/auth/error',
-  },
 }
 
 const handler = NextAuth(authOptions)
