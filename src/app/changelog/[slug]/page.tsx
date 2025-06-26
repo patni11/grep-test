@@ -34,6 +34,78 @@ function formatRelativeDate(dateString: string) {
   return `${Math.floor(diffInDays / 365)} years ago`
 }
 
+// Enhanced function to parse inline markdown formatting
+function parseInlineMarkdown(text: string): React.ReactNode[] {
+  const parts: React.ReactNode[] = []
+  let currentIndex = 0
+  let key = 0
+
+  // Regular expressions for different inline formatting
+  const patterns = [
+    // Bold text **text**
+    { regex: /\*\*(.*?)\*\*/g, component: (text: string, url?: string) => <strong key={key++} className="font-semibold">{text}</strong> },
+    // Italic text *text*
+    { regex: /\*(.*?)\*/g, component: (text: string, url?: string) => <em key={key++} className="italic">{text}</em> },
+    // Code text `text`
+    { regex: /`(.*?)`/g, component: (text: string, url?: string) => <code key={key++} className="bg-gray-100 px-1.5 py-0.5 rounded text-sm font-mono text-gray-800">{text}</code> },
+    // Links [text](url)
+    { regex: /\[([^\]]+)\]\(([^)]+)\)/g, component: (text: string, url?: string) => <a key={key++} href={url!} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline">{text}</a> }
+  ]
+
+  // Find all matches and their positions
+  const matches: Array<{ start: number; end: number; replacement: React.ReactNode }> = []
+  
+  patterns.forEach(pattern => {
+    let match
+    const regex = new RegExp(pattern.regex.source, pattern.regex.flags)
+    
+    while ((match = regex.exec(text)) !== null) {
+      const fullMatch = match[0]
+      const capturedText = match[1]
+      const url = match[2] // For links
+      
+      matches.push({
+        start: match.index,
+        end: match.index + fullMatch.length,
+        replacement: url ? pattern.component(capturedText, url) : pattern.component(capturedText)
+      })
+    }
+  })
+
+  // Sort matches by start position
+  matches.sort((a, b) => a.start - b.start)
+
+  // Build the result array with formatted and unformatted parts
+  matches.forEach(match => {
+    // Add text before this match
+    if (currentIndex < match.start) {
+      const beforeText = text.slice(currentIndex, match.start)
+      if (beforeText) {
+        parts.push(beforeText)
+      }
+    }
+    
+    // Add the formatted replacement
+    parts.push(match.replacement)
+    currentIndex = match.end
+  })
+
+  // Add remaining text after all matches
+  if (currentIndex < text.length) {
+    const remainingText = text.slice(currentIndex)
+    if (remainingText) {
+      parts.push(remainingText)
+    }
+  }
+
+  // If no matches found, return the original text
+  if (matches.length === 0) {
+    return [text]
+  }
+
+  return parts
+}
+
 // Simple markdown parser for our changelog content
 function parseMarkdown(content: string) {
   const lines = content.split('\n')
@@ -44,33 +116,37 @@ function parseMarkdown(content: string) {
     const line = lines[i]
     
     if (line.startsWith('# ')) {
+      const headerText = line.substring(2)
       elements.push(
         <h1 key={key++} className="text-3xl font-bold text-black mb-6 pb-3 border-b border-gray-200">
-          {line.substring(2)}
+          {parseInlineMarkdown(headerText)}
         </h1>
       )
     } else if (line.startsWith('## 📅 ')) {
+      const headerText = line.substring(3)
       elements.push(
         <div key={key++} className="mt-12 mb-6">
           <Card className="border-l-4 border-l-black bg-gray-50/50">
             <CardContent className="p-6">
               <h2 className="text-2xl font-bold text-black m-0 flex items-center">
-                {line.substring(3)}
+                {parseInlineMarkdown(headerText)}
               </h2>
             </CardContent>
           </Card>
         </div>
       )
     } else if (line.startsWith('### ')) {
+      const headerText = line.substring(4)
       elements.push(
         <h3 key={key++} className="text-xl font-semibold text-black mt-8 mb-4 flex items-center">
-          {line.substring(4)}
+          {parseInlineMarkdown(headerText)}
         </h3>
       )
     } else if (line.startsWith('## ')) {
+      const headerText = line.substring(3)
       elements.push(
         <h2 key={key++} className="text-2xl font-bold text-black mt-10 mb-4">
-          {line.substring(3)}
+          {parseInlineMarkdown(headerText)}
         </h2>
       )
     } else if (line.startsWith('- **') && line.includes('**')) {
@@ -87,22 +163,25 @@ function parseMarkdown(content: string) {
         )
       }
     } else if (line.startsWith('- ')) {
+      const listText = line.substring(2)
       elements.push(
         <div key={key++} className="flex items-start space-x-3 mb-3">
           <div className="w-1.5 h-1.5 bg-black rounded-full mt-2.5 flex-shrink-0"></div>
-          <div className="flex-1 text-gray-700">{line.substring(2)}</div>
+          <div className="flex-1 text-gray-700">{parseInlineMarkdown(listText)}</div>
         </div>
       )
     } else if (line.startsWith('*') && line.endsWith('*') && !line.includes('**')) {
+      const italicText = line.substring(1, line.length - 1)
       elements.push(
         <p key={key++} className="text-gray-600 text-sm italic mb-4">
-          {line.substring(1, line.length - 1)}
+          {parseInlineMarkdown(italicText)}
         </p>
       )
     } else if (line.startsWith('**') && line.endsWith('**')) {
+      const boldText = line.substring(2, line.length - 2)
       elements.push(
         <p key={key++} className="text-black font-semibold mb-4">
-          {line.substring(2, line.length - 2)}
+          {parseInlineMarkdown(boldText)}
         </p>
       )
     } else if (line === '---') {
@@ -112,7 +191,7 @@ function parseMarkdown(content: string) {
     } else if (line.trim() && !line.startsWith('#')) {
       elements.push(
         <p key={key++} className="text-gray-700 leading-relaxed mb-4">
-          {line}
+          {parseInlineMarkdown(line)}
         </p>
       )
     }
