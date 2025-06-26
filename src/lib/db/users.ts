@@ -106,23 +106,39 @@ export async function findOrCreateUser(githubData: {
   access_token?: string
 }): Promise<UserDocument> {
   const collection = await getUsersCollection()
-  
-  // Try to find existing user
-  let user = await getUserByGithubId(githubData.id)
-  
-  if (user) {
-    // Update existing user with latest GitHub data
-    const updatedUser = await updateUserByGithubId(githubData.id, {
-      username: githubData.login,
-      email: githubData.email,
-      avatar_url: githubData.avatar_url,
-      access_token: githubData.access_token,
-    })
-    return updatedUser!
-  } else {
-    // Create new user
-    return await createUser(githubData)
+
+  const now = new Date()
+
+  const result = await collection.findOneAndUpdate(
+    { github_id: githubData.id },
+    {
+      $set: {
+        username: githubData.login,
+        email: githubData.email,
+        avatar_url: githubData.avatar_url,
+        access_token: githubData.access_token,
+        updated_at: now,
+      },
+      $setOnInsert: {
+        github_id: githubData.id,
+        created_at: now,
+      },
+    },
+    {
+      upsert: true,
+      returnDocument: 'after',
+    }
+  )
+
+  // Mongo driver typings differ between versions – if `value` exists, use it.
+  const user = (result as any)?.value ?? (result as any)
+
+  // Ensure _id is a string for consistency with createUser helper
+  if (user && user._id && typeof user._id !== 'string') {
+    user._id = user._id.toString()
   }
+
+  return user as UserDocument
 }
 
 // Get user with their repositories count

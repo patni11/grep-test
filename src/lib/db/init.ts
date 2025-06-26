@@ -1,32 +1,35 @@
 import clientPromise from '@/lib/mongodb'
 import { initializeCollections } from './schemas'
 
+let initialized = false
+
 /**
  * Initialize the MongoDB database with proper collections and indexes
  * This should be called once when setting up the application
  */
 export async function initializeDatabase() {
+  if (initialized) {
+    return
+  }
+
   try {
-    console.log('🔄 Initializing MongoDB database...')
-    
     const client = await clientPromise
     const db = client.db()
     
-    // Initialize collections with proper indexing
+    console.log('Initializing database collections and indexes...')
     await initializeCollections(db)
     
-    console.log('✅ Database initialized successfully')
-    console.log('📊 Collections created:')
-    console.log('  - users (with github_id, email, username indexes)')
-    console.log('  - repositories (with user_id, github_repo_id, repo_full_name indexes)')
-    console.log('  - changelogs (with repo_id, public_slug, version indexes)')
-    console.log('  - commits (with repo_id, commit_hash, processed indexes)')
-    
-    return true
+    initialized = true
+    console.log('Database initialization completed successfully')
   } catch (error) {
-    console.error('❌ Error initializing database:', error)
-    return false
+    console.error('Error initializing database:', error)
+    throw error
   }
+}
+
+// Auto-initialize on import in development
+if (process.env.NODE_ENV === 'development') {
+  initializeDatabase().catch(console.error)
 }
 
 /**
