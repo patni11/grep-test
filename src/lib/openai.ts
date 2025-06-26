@@ -325,7 +325,7 @@ function generateEnhancedFallbackChangelog(
       
       if (monthAnalysis.patterns.features.length > 0) {
         content += `### 🚀 New Features & Functionality\n`
-        monthAnalysis.patterns.features.forEach((commit, index) => {
+        monthAnalysis.patterns.features.forEach((commit) => {
           const message = commit.split('\n')[0]
           const date = monthCommits.find(c => c.message === commit)?.committed_at
           const formattedDate = date ? new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''
