@@ -38,6 +38,7 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       // Get user data from our custom collection and add to session
+      session.accessToken = token.accessToken as string;
       if (token.githubId) {
         try {
           const user = await getUserByGithubId(token.githubId as string)
@@ -56,7 +57,7 @@ export const authOptions: NextAuthOptions = {
     },
     async jwt({ token, user, account, profile }) {
       // Store GitHub ID in JWT token for session callback
-      if (account?.provider === 'github' && profile) {
+      if (account?.access_token) {
         token.githubId = (profile as any).id?.toString()
         token.accessToken = account.access_token
       }
