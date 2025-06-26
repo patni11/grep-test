@@ -42,7 +42,7 @@ export function ChangelogActions({ title, content }: ChangelogActionsProps) {
       <Button 
         variant="outline" 
         size="sm"
-        className="border-white/20 text-white hover:bg-white/10"
+        className="border-white/20 text-black hover:bg-white/10 hover:text-white"
         onClick={handleShare}
       >
         <Share2 className="w-4 h-4 mr-2" />
@@ -52,7 +52,7 @@ export function ChangelogActions({ title, content }: ChangelogActionsProps) {
       <Button 
         variant="outline" 
         size="sm"
-        className="border-white/20 text-white hover:bg-white/10"
+        className="border-white/20 text-black hover:bg-white/10 hover:text-white"
         onClick={handleDownload}
       >
         <Download className="w-4 h-4 mr-2" />

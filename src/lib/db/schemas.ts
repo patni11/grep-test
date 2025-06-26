@@ -32,6 +32,13 @@ export interface RepositoryDocument {
   connected_at: Date
   last_sync_at?: Date
   webhook_id?: string
+  // New fields for better sorting and filtering
+  github_updated_at?: Date
+  description?: string | null
+  language?: string | null
+  stargazers_count?: number
+  forks_count?: number
+  has_changelogs?: boolean
 }
 
 export interface ChangelogDocument {

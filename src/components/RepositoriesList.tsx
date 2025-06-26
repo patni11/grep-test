@@ -28,6 +28,8 @@ interface Repository {
 interface RepositoriesResponse {
   repositories: Repository[]
   totalCount: number
+  hasMore: boolean
+  currentPage: number
   warning?: string
   error?: string
   lastUpdated?: string
@@ -39,29 +41,46 @@ export function RepositoriesList() {
   const [repositories, setRepositories] = useState<Repository[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [warning, setWarning] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [connectingRepos, setConnectingRepos] = useState<Set<number>>(new Set())
   const [generatingRepos, setGeneratingRepos] = useState<Set<number>>(new Set())
+  const [currentPage, setCurrentPage] = useState(1)
+  const [hasMore, setHasMore] = useState(false)
+  const [totalCount, setTotalCount] = useState(0)
 
   useEffect(() => {
     fetchRepositories()
   }, [])
 
-  const fetchRepositories = async (forceRefresh = false) => {
+  const fetchRepositories = async (forceRefresh = false, page = 1, append = false) => {
     try {
-      if (forceRefresh) {
+      if (forceRefresh && page === 1) {
         setRefreshing(true)
-      } else {
+        setRepositories([])
+        setCurrentPage(1)
+      } else if (page === 1) {
         setLoading(true)
+      } else {
+        setLoadingMore(true)
       }
       
       setError(null)
       setWarning(null)
       
-      const url = forceRefresh ? '/api/repositories?refresh=true' : '/api/repositories'
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: '10'
+      })
+      
+      if (forceRefresh) {
+        params.append('refresh', 'true')
+      }
+      
+      const url = `/api/repositories?${params.toString()}`
       const response = await fetch(url)
       
       if (!response.ok) {
@@ -71,7 +90,15 @@ export function RepositoriesList() {
       
       const data: RepositoriesResponse = await response.json()
       
-      setRepositories(data.repositories)
+      if (append && page > 1) {
+        setRepositories(prev => [...prev, ...data.repositories])
+      } else {
+        setRepositories(data.repositories)
+      }
+      
+      setHasMore(data.hasMore || false)
+      setCurrentPage(data.currentPage || page)
+      setTotalCount(data.totalCount || 0)
       setWarning(data.warning || null)
       setLastUpdated(data.lastUpdated || null)
       setMessage(data.message || null)
@@ -85,11 +112,16 @@ export function RepositoriesList() {
     } finally {
       setLoading(false)
       setRefreshing(false)
+      setLoadingMore(false)
     }
   }
 
   const handleRefresh = () => {
-    fetchRepositories(true)
+    fetchRepositories(true, 1, false)
+  }
+
+  const handleLoadMore = () => {
+    fetchRepositories(false, currentPage + 1, true)
   }
 
   const handleConnect = async (githubRepoId: number, repoFullName: string) => {
@@ -323,7 +355,7 @@ export function RepositoriesList() {
             </Badge>
           )}
           <Badge variant="outline" className="border-black text-black">
-            {repositories.length} repositories
+            {repositories.length} of {totalCount} repositories
           </Badge>
           <Button
             onClick={handleRefresh}
@@ -378,6 +410,11 @@ export function RepositoriesList() {
                         <Badge variant="outline" className="text-xs">
                           {repo.private ? 'Private' : 'Public'}
                         </Badge>
+                        {/* {repo.changelogCount && repo.changelogCount > 0 && (
+                          <Badge className="bg-green-100 text-green-800 text-xs">
+                            {repo.changelogCount} changelog{repo.changelogCount !== 1 ? 's' : ''}
+                          </Badge>
+                        )} */}
                       </div>
                     </div>
                     
@@ -424,14 +461,16 @@ export function RepositoriesList() {
                 <div className="flex space-x-2 ml-4">
                   {repo.isConnected ? (
                     <>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleView(repo.github_repo_id, repo.id)}
-                        className="border-black text-black hover:bg-black hover:text-white"
-                      >
-                        View
-                      </Button>
+                      {repo.changelogCount && repo.changelogCount > 0 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleView(repo.github_repo_id, repo.id)}
+                          className="border-black text-black hover:bg-black hover:text-white"
+                        >
+                          View
+                        </Button>
+                      )}
                       <Button
                         size="sm"
                         onClick={() => handleGenerate(repo.github_repo_id, repo.id, repo.full_name)}
@@ -469,7 +508,7 @@ export function RepositoriesList() {
         ))}
       </div>
       
-      {repositories.length === 0 && (
+      {repositories.length === 0 && !loading && (
         <Card className="border-dashed border-black">
           <CardContent className="p-4 text-center">
             <Folder className="w-12 h-12 text-gray-400 mx-auto mb-4" />
@@ -495,6 +534,28 @@ export function RepositoriesList() {
             </div>
           </CardContent>
         </Card>
+      )}
+      
+      {hasMore && (
+        <div className="flex justify-center">
+          <Button
+            onClick={handleLoadMore}
+            disabled={loadingMore}
+            variant="outline"
+            className="border-black text-black hover:bg-black hover:text-white"
+          >
+            {loadingMore ? (
+              <>
+                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                Loading more...
+              </>
+            ) : (
+              <>
+                Load More ({totalCount - repositories.length} remaining)
+              </>
+            )}
+          </Button>
+        </div>
       )}
       
       <Button

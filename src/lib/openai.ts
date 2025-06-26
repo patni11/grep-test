@@ -18,6 +18,37 @@ export interface ChangelogGenerationData {
   isPrivate?: boolean
 }
 
+// Group commits by month for better organization
+function groupCommitsByMonth(commits: Array<{
+  sha: string
+  message: string
+  author_name: string
+  author_email: string
+  committed_at: string
+}>) {
+  const groups: Record<string, typeof commits> = {}
+  
+  commits.forEach(commit => {
+    const date = new Date(commit.committed_at)
+    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+    const monthLabel = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' })
+    
+    if (!groups[monthKey]) {
+      groups[monthKey] = []
+    }
+    groups[monthKey].push(commit)
+  })
+  
+  // Sort by month (newest first)
+  const sortedEntries = Object.entries(groups).sort(([a], [b]) => b.localeCompare(a))
+  
+  return sortedEntries.map(([monthKey, monthCommits]) => {
+    const date = new Date(monthKey + '-01')
+    const monthLabel = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' })
+    return { monthKey, monthLabel, commits: monthCommits }
+  })
+}
+
 export async function generateChangelogWithAI(data: ChangelogGenerationData): Promise<{
   title: string
   content: string
@@ -29,10 +60,17 @@ export async function generateChangelogWithAI(data: ChangelogGenerationData): Pr
   const now = new Date()
   const version = `v${now.getFullYear()}.${(now.getMonth() + 1).toString().padStart(2, '0')}.${now.getDate().toString().padStart(2, '0')}`
   
-  // Prepare commit data for the AI prompt
-  const commitSummary = commits.map((commit, index) => 
-    `${index + 1}. ${commit.message.split('\n')[0]} (by ${commit.author_name} on ${new Date(commit.committed_at).toLocaleDateString()})`
-  ).join('\n')
+  // Group commits by month
+  const monthlyGroups = groupCommitsByMonth(commits)
+  
+  // Prepare commit data for the AI prompt with monthly structure
+  const monthlyCommitSummary = monthlyGroups.map(({ monthLabel, commits: monthCommits }) => {
+    const commitList = monthCommits.map((commit, index) => 
+      `  ${index + 1}. ${commit.message.split('\n')[0]} (by ${commit.author_name} on ${new Date(commit.committed_at).toLocaleDateString()})`
+    ).join('\n')
+    
+    return `**${monthLabel}** (${monthCommits.length} commits):\n${commitList}`
+  }).join('\n\n')
   
   const prompt = `
 You are an expert technical writer creating a changelog for a software repository. 
@@ -43,18 +81,35 @@ Repository Information:
 - Type: ${isPrivate ? 'Private' : 'Public'} repository
 ${repoUrl ? `- URL: ${repoUrl}` : ''}
 
-Recent Commits (${commits.length} total):
-${commitSummary}
+Recent Commits Grouped by Month (${commits.length} total):
+${monthlyCommitSummary}
 
 Please generate a comprehensive and professional changelog that:
-1. Analyzes the commits to understand what the software/project does
-2. Groups changes into logical categories (Features, Bug Fixes, Improvements, etc.)
-3. Provides clear, user-friendly descriptions of what each change means
-4. Uses appropriate emojis for visual appeal
-5. Explains the impact of changes on users
-6. Uses professional technical writing tone
+1. Groups changes by MONTH (as shown above) - this is CRITICAL
+2. For each month, create a beautiful card-like section with the month name as a header
+3. Within each month, categorize changes into logical groups (Features, Bug Fixes, Improvements, etc.)
+4. Provides clear, user-friendly descriptions of what each change means
+5. Uses appropriate emojis for visual appeal and categorization
+6. Explains the impact of changes on users
+7. Uses professional technical writing tone
+8. Makes it visually appealing with proper markdown formatting
 
-The changelog should be in Markdown format and help users understand what has changed and why it matters.
+The structure should be:
+# [Repository Name] - [Version]
+
+## 📅 [Month Year] 
+[Description of month's changes]
+
+### 🚀 New Features
+- [Feature descriptions]
+
+### 🐛 Bug Fixes
+- [Fix descriptions]
+
+### ✨ Improvements
+- [Improvement descriptions]
+
+(Repeat for each month)
 
 Return ONLY the changelog content in markdown format, starting with a level 1 heading.
 `
@@ -65,14 +120,14 @@ Return ONLY the changelog content in markdown format, starting with a level 1 he
       messages: [
         {
           role: "system",
-          content: "You are an expert technical writer specializing in creating clear, comprehensive changelogs for software projects. You understand how to analyze commit messages and translate technical changes into user-friendly descriptions."
+          content: "You are an expert technical writer specializing in creating beautiful, month-grouped changelogs for software projects. You understand how to analyze commit messages, group them by time periods, and translate technical changes into user-friendly descriptions with beautiful formatting."
         },
         {
           role: "user",
           content: prompt
         }
       ],
-      max_tokens: 2000,
+      max_tokens: 3000,
       temperature: 0.7,
     })
 
@@ -83,7 +138,7 @@ Return ONLY the changelog content in markdown format, starting with a level 1 he
     }
 
     // Add metadata footer
-    const content = `${aiGeneratedContent}\n\n---\n*This changelog was automatically generated using AI from ${commits.length} recent commits.*`
+    const content = `${aiGeneratedContent}\n\n---\n\n### 📊 Generation Details\n- **Total Commits Analyzed:** ${commits.length}\n- **Time Period:** ${monthlyGroups.length} month${monthlyGroups.length !== 1 ? 's' : ''}\n- **Generated:** ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}\n\n*This changelog was automatically generated using AI from recent commits.*`
     
     // Generate title
     const title = `${repoName} - ${version}`
@@ -109,54 +164,65 @@ function generateSimpleChangelog(data: ChangelogGenerationData, version: string)
   // Generate title
   const title = `${repoName} - ${version}`
   
-  // Process commits into meaningful categories
-  const features: string[] = []
-  const fixes: string[] = []
-  const improvements: string[] = []
-  const other: string[] = []
+  // Group commits by month
+  const monthlyGroups = groupCommitsByMonth(commits)
   
-  commits.forEach(commit => {
-    const message = commit.message.split('\n')[0] // First line only
-    const lowerMessage = message.toLowerCase()
-    
-    if (lowerMessage.includes('feat') || lowerMessage.includes('add') || lowerMessage.includes('new')) {
-      features.push(`- ${message}`)
-    } else if (lowerMessage.includes('fix') || lowerMessage.includes('bug') || lowerMessage.includes('patch')) {
-      fixes.push(`- ${message}`)
-    } else if (lowerMessage.includes('improve') || lowerMessage.includes('update') || lowerMessage.includes('enhance') || lowerMessage.includes('refactor')) {
-      improvements.push(`- ${message}`)
-    } else if (!lowerMessage.includes('merge') && !lowerMessage.includes('bump') && message.trim().length > 10) {
-      // Filter out merge commits and version bumps, and very short messages
-      other.push(`- ${message}`)
-    }
-  })
-  
-  // Build changelog content
+  // Build changelog content with monthly structure
   const now = new Date()
   let content = `# ${title}\n\n`
   content += `**Release Date:** ${now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}\n\n`
   
-  if (features.length > 0) {
-    content += `## 🚀 New Features\n${features.join('\n')}\n\n`
-  }
+  monthlyGroups.forEach(({ monthLabel, commits: monthCommits }) => {
+    content += `## 📅 ${monthLabel}\n\n`
+    content += `*${monthCommits.length} commit${monthCommits.length !== 1 ? 's' : ''} this month*\n\n`
+    
+    // Process commits into meaningful categories for this month
+    const features: string[] = []
+    const fixes: string[] = []
+    const improvements: string[] = []
+    const other: string[] = []
+    
+    monthCommits.forEach(commit => {
+      const message = commit.message.split('\n')[0] // First line only
+      const lowerMessage = message.toLowerCase()
+      const date = new Date(commit.committed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      
+      if (lowerMessage.includes('feat') || lowerMessage.includes('add') || lowerMessage.includes('new')) {
+        features.push(`- **${message}** *(${date})*`)
+      } else if (lowerMessage.includes('fix') || lowerMessage.includes('bug') || lowerMessage.includes('patch')) {
+        fixes.push(`- **${message}** *(${date})*`)
+      } else if (lowerMessage.includes('improve') || lowerMessage.includes('update') || lowerMessage.includes('enhance') || lowerMessage.includes('refactor')) {
+        improvements.push(`- **${message}** *(${date})*`)
+      } else if (!lowerMessage.includes('merge') && !lowerMessage.includes('bump') && message.trim().length > 10) {
+        // Filter out merge commits and version bumps, and very short messages
+        other.push(`- **${message}** *(${date})*`)
+      }
+    })
+    
+    if (features.length > 0) {
+      content += `### 🚀 New Features\n${features.join('\n')}\n\n`
+    }
+    
+    if (improvements.length > 0) {
+      content += `### ✨ Improvements\n${improvements.join('\n')}\n\n`
+    }
+    
+    if (fixes.length > 0) {
+      content += `### 🐛 Bug Fixes\n${fixes.join('\n')}\n\n`
+    }
+    
+    if (other.length > 0) {
+      content += `### 📝 Other Changes\n${other.join('\n')}\n\n`
+    }
+    
+    if (features.length === 0 && improvements.length === 0 && fixes.length === 0 && other.length === 0) {
+      content += `### 📝 Changes\n- No significant changes detected in commits\n\n`
+    }
+    
+    content += `---\n\n`
+  })
   
-  if (improvements.length > 0) {
-    content += `## ✨ Improvements\n${improvements.join('\n')}\n\n`
-  }
-  
-  if (fixes.length > 0) {
-    content += `## 🐛 Bug Fixes\n${fixes.join('\n')}\n\n`
-  }
-  
-  if (other.length > 0) {
-    content += `## 📝 Other Changes\n${other.join('\n')}\n\n`
-  }
-  
-  if (features.length === 0 && improvements.length === 0 && fixes.length === 0 && other.length === 0) {
-    content += `## 📝 Changes\n- No significant changes detected in recent commits\n\n`
-  }
-  
-  content += `---\n*This changelog was automatically generated from ${commits.length} recent commits (OpenAI unavailable).*`
+  content += `### 📊 Generation Details\n- **Total Commits Analyzed:** ${commits.length}\n- **Time Period:** ${monthlyGroups.length} month${monthlyGroups.length !== 1 ? 's' : ''}\n- **Generated:** ${now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}\n\n*This changelog was automatically generated from recent commits (OpenAI unavailable).*`
   
   return { title, content, version }
 }

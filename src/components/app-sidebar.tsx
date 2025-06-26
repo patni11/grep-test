@@ -32,14 +32,14 @@ export function AppSidebar() {
       
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-black font-semibold">Navigation</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-black font-semibold text-lg mb-2">Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild className="hover:bg-black hover:text-white">
+                <SidebarMenuButton asChild className="hover:bg-black hover:text-white p-2">
                   <a href="/">
-                    <Home className="w-4 h-4" />
-                    <span>Home</span>
+                    <Home className="w-8 h-8" />
+                    <span className="text-md font-semibold">Home</span>
                   </a>
                 </SidebarMenuButton>
               </SidebarMenuItem>

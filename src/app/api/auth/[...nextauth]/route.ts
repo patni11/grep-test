@@ -20,7 +20,7 @@ export const authOptions: NextAuthOptions = {
     async signIn({ user, account, profile }) {
       // Store user data in our custom users collection
 
-//      await initializeDatabase()
+      await initializeDatabase()
       if (account?.provider === 'github' && profile) {
         try {
           const githubProfile = profile as any

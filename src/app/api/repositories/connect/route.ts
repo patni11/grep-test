@@ -8,7 +8,7 @@ import { initializeDatabase } from '@/lib/db/init'
 export async function POST(request: NextRequest) {
   try {
     // Initialize database on first access
-    //await initializeDatabase()
+    await initializeDatabase()
     
     const session = await getServerSession(authOptions)
     

@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/app/api/auth/[...nextauth]/route'
-import { getRepositoryById } from '@/lib/db/repositories'
 import { getChangelogsByRepository } from '@/lib/db/changelogs'
+
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -15,18 +15,23 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id: repoId } = await params
+    const repoId = params.id
 
-    // Get repository from database
-    const repository = await getRepositoryById(repoId)
-    if (!repository) {
-        console.log("Repository not found api/repos/id/changelogs")
-      return NextResponse.json({ error: 'Repository not found' }, { status: 404 })
+    if (!repoId) {
+      return NextResponse.json({ 
+        error: 'Repository ID is required' 
+      }, { status: 400 })
     }
 
-    // Verify repository belongs to user
-    if (repository.user_id !== session.user.id) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+    // Check if user has access to this repository
+    // First get the repository to check access
+    const { getRepositoryById } = await import('@/lib/db/repositories')
+    const repository = await getRepositoryById(repoId)
+    
+    if (!repository || repository.user_id !== session.user.id) {
+      return NextResponse.json({ 
+        error: 'Repository not found or access denied' 
+      }, { status: 404 })
     }
 
     // Get changelogs for this repository
@@ -34,23 +39,23 @@ export async function GET(
 
     return NextResponse.json({
       success: true,
-      repository: {
-        id: repository._id,
-        name: repository.repo_name,
-        full_name: repository.repo_full_name
-      },
       changelogs: changelogs.map(changelog => ({
         id: changelog._id,
         title: changelog.title,
         version: changelog.version,
         content: changelog.content,
-        commit_count: changelog.commit_hashes?.length || 0,
         public_slug: changelog.public_slug,
         is_published: changelog.is_published,
         created_at: changelog.created_at,
-        updated_at: changelog.updated_at
+        updated_at: changelog.updated_at,
+        commit_count: changelog.commit_hashes.length
       })),
-      total_count: changelogs.length
+      total: changelogs.length,
+      repository: {
+        id: repository._id,
+        name: repository.repo_name,
+        full_name: repository.repo_full_name
+      }
     })
 
   } catch (error) {

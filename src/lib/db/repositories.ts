@@ -18,6 +18,11 @@ export async function createRepository(repositoryData: {
   github_repo_id: number
   default_branch: string
   is_private: boolean
+  github_updated_at?: Date
+  description?: string | null
+  language?: string | null
+  stargazers_count?: number
+  forks_count?: number
 }): Promise<RepositoryDocument> {
   const collection = await getRepositoriesCollection()
   
@@ -25,6 +30,7 @@ export async function createRepository(repositoryData: {
   const repoDoc: RepositoryDocument = {
     ...repositoryData,
     connected_at: now,
+    has_changelogs: false,
   }
 
   const result = await collection.insertOne(repoDoc)
@@ -43,7 +49,17 @@ export async function getRepositoryByGithubId(githubRepoId: number): Promise<Rep
 // Find repository by ID
 export async function getRepositoryById(repoId: string): Promise<RepositoryDocument | null> {
   const collection = await getRepositoriesCollection()
-  return await collection.findOne({ _id: repoId as any })
+  return await collection.findOne({ _id: new ObjectId(repoId) as any })
+}
+
+// Find repository by slug (repo_full_name or repo_name)
+export async function getRepositoryBySlug(slug: string): Promise<RepositoryDocument | null> {
+  const collection = await getRepositoriesCollection()
+  
+  // Try to find by repo_full_name first (e.g., "owner/repo")
+  let repo = await collection.findOne({ public_slug: slug })
+  
+  return repo
 }
 
 // Get all repositories for a user
@@ -90,6 +106,11 @@ export async function findOrCreateRepository(repositoryData: {
   github_repo_id: number
   default_branch: string
   is_private: boolean
+  github_updated_at?: Date
+  description?: string | null
+  language?: string | null
+  stargazers_count?: number
+  forks_count?: number
 }): Promise<RepositoryDocument> {
   const collection = await getRepositoriesCollection()
   
@@ -98,12 +119,18 @@ export async function findOrCreateRepository(repositoryData: {
   
   if (repo) {
     // Update existing repository with latest data
+    
     const updatedRepo = await updateRepository(repo._id!, {
       repo_name: repositoryData.repo_name,
       repo_full_name: repositoryData.repo_full_name,
       repo_url: repositoryData.repo_url,
       default_branch: repositoryData.default_branch,
       is_private: repositoryData.is_private,
+      github_updated_at: repositoryData.github_updated_at,
+      description: repositoryData.description,
+      language: repositoryData.language,
+      stargazers_count: repositoryData.stargazers_count,
+      forks_count: repositoryData.forks_count,
     })
     return updatedRepo!
   } else {
@@ -167,4 +194,86 @@ export async function checkUserRepositoryAccess(
     user_id: userId,
     repo_full_name: repoFullName
   })
+}
+
+// Get paginated repositories for a user with sorting
+export async function getUserRepositoriesPaginated(
+  userId: string, 
+  page: number = 1, 
+  limit: number = 10
+): Promise<{
+  repositories: (RepositoryDocument & { changelogCount: number })[]
+  totalCount: number
+  hasMore: boolean
+}> {
+  const client = await clientPromise
+  const db = client.db()
+  
+  const skip = (page - 1) * limit
+  
+  // Aggregation pipeline to get repositories with changelog count and proper sorting
+  const pipeline = [
+    { $match: { user_id: userId } },
+    {
+      $lookup: {
+        from: COLLECTIONS.CHANGELOGS,
+        localField: '_id',
+        foreignField: 'repo_id',
+        as: 'changelogs'
+      }
+    },
+    {
+      $addFields: {
+        changelogCount: { $size: '$changelogs' },
+        sortKey: {
+          $cond: {
+            if: { $gt: [{ $size: '$changelogs' }, 0] },
+            then: {
+              // For repositories with changelogs, sort by latest changelog creation date
+              $max: '$changelogs.created_at'
+            },
+            else: {
+              // For repositories without changelogs, sort by GitHub update date
+              $ifNull: ['$github_updated_at', '$connected_at']
+            }
+          }
+        }
+      }
+    },
+    {
+      $sort: {
+        changelogCount: -1, // Repositories with changelogs first
+        sortKey: -1 // Then by most recent activity
+      }
+    },
+    {
+      $project: {
+        changelogs: 0 // Don't include the full changelogs array
+      }
+    }
+  ]
+  
+  // Get total count
+  const totalPipeline = [...pipeline, { $count: 'total' }]
+  const totalResult = await db.collection(COLLECTIONS.REPOSITORIES).aggregate(totalPipeline).toArray()
+  const totalCount = totalResult[0]?.total || 0
+  
+  // Get paginated results
+  const paginatedPipeline = [...pipeline, { $skip: skip }, { $limit: limit }]
+  const repositories = await db.collection(COLLECTIONS.REPOSITORIES).aggregate(paginatedPipeline).toArray()
+  
+  return {
+    repositories: repositories as (RepositoryDocument & { changelogCount: number })[],
+    totalCount,
+    hasMore: totalCount > (skip + limit)
+  }
+}
+
+// Update repository changelog status
+export async function updateRepositoryChangelogStatus(repoId: string, hasChangelogs: boolean): Promise<void> {
+  const collection = await getRepositoriesCollection()
+  await collection.updateOne(
+    { _id: new ObjectId(repoId) as any },
+    { $set: { has_changelogs: hasChangelogs } }
+  )
 } 

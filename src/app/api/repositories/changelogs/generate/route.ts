@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 import { GitHubService, GitHubCommit } from '@/lib/github'
-import { checkUserRepositoryAccess } from '@/lib/db/repositories'
+import { checkUserRepositoryAccess, updateRepositoryChangelogStatus } from '@/lib/db/repositories'
 import { 
   createChangelog, 
   generateChangelogContent, 
@@ -83,6 +83,9 @@ export async function POST(request: NextRequest) {
         is_published: true // Automatically publish for immediate public access
       })
 
+      // Update repository to mark it as having changelogs
+      await updateRepositoryChangelogStatus(repoId, true)
+
       return NextResponse.json({
         success: true,
         changelog: {
@@ -93,7 +96,8 @@ export async function POST(request: NextRequest) {
           commit_count: commitData.length,
           public_slug: changelog.public_slug,
           is_published: changelog.is_published,
-          created_at: changelog.created_at
+          created_at: changelog.created_at,
+          repo_id: repoId
         },
         message: `Generated changelog from ${commitData.length} commits`
       })
