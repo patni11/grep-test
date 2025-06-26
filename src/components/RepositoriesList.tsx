@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Folder, Plus, Star, GitFork, Lock, Globe, AlertCircle, RefreshCw, Clock } from 'lucide-react'
@@ -34,6 +35,7 @@ interface RepositoriesResponse {
 }
 
 export function RepositoriesList() {
+  const router = useRouter()
   const [repositories, setRepositories] = useState<Repository[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -124,9 +126,45 @@ export function RepositoriesList() {
     }
   }
 
-  const handleView = (githubRepoId: number) => {
-    // TODO: Implement view changelogs logic
-    console.log('Viewing changelogs for repository:', githubRepoId)
+  const handleView = async (githubRepoId: number, repoDbId: string) => {
+    try {
+      if (!repoDbId || repoDbId.trim() === '') {
+        setError('Repository ID is missing. Please reconnect the repository.')
+        return
+      }
+
+      // Fetch changelogs for this repository
+      const response = await fetch(`/api/repositories/${repoDbId}/changelogs`)
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to fetch changelogs')
+      }
+
+      const data = await response.json()
+      
+      if (!data.changelogs || data.changelogs.length === 0) {
+        setError('No changelogs found for this repository. Generate one first.')
+        return
+      }
+
+      // Find the latest published changelog, or fall back to the latest one
+      const latestPublishedChangelog = data.changelogs.find((changelog: any) => changelog.is_published)
+      const latestChangelog = latestPublishedChangelog || data.changelogs[0]
+
+      if (!latestChangelog.public_slug) {
+        setError('Changelog URL not available. Please try generating a new changelog.')
+        return
+      }
+
+      // Redirect to the public changelog URL
+      const changelogUrl = `/changelog/${latestChangelog.public_slug}`
+      window.open(changelogUrl, '_blank')
+      
+    } catch (err) {
+      console.error('Error viewing changelog:', err)
+      setError(err instanceof Error ? err.message : 'Failed to view changelog')
+    }
   }
 
   const handleGenerate = async (githubRepoId: number, repoDbId: string, repoFullName: string) => {
@@ -158,6 +196,12 @@ export function RepositoriesList() {
       
       // Show success message
       setMessage(`✅ ${result.message}. Changelog: "${result.changelog.title}"`)
+      
+      // Automatically redirect to the new changelog if it has a public slug
+      if (result.changelog?.public_slug) {
+        const changelogUrl = `/changelog/${result.changelog.public_slug}`
+        window.open(changelogUrl, '_blank')
+      }
       
       // Refresh the repositories list to update changelog count
       await fetchRepositories()
@@ -383,7 +427,7 @@ export function RepositoriesList() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleView(repo.github_repo_id)}
+                        onClick={() => handleView(repo.github_repo_id, repo.id)}
                         className="border-black text-black hover:bg-black hover:text-white"
                       >
                         View

@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
         commit_hashes: commitData.map(c => c.sha),
         from_commit: githubCommits[githubCommits.length - 1]?.sha, // Oldest commit in the range
         to_commit: githubCommits[0]?.sha, // Latest commit
-        is_published: false // Create as draft initially
+        is_published: true // Automatically publish for immediate public access
       })
 
       return NextResponse.json({
