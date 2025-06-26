@@ -27,7 +27,7 @@ export function AppSidebar() {
   return (
     <Sidebar className="border-r-2 border-black">
       <SidebarHeader className="border-b border-black p-4">
-        <h2 className="text-lg font-bold text-black">Dashboard</h2>
+        <h2 className="text-lg font-bold text-black">Delta</h2>
       </SidebarHeader>
       
       <SidebarContent>
@@ -51,7 +51,6 @@ export function AppSidebar() {
       <SidebarFooter className="border-t border-black p-4">
         {session?.user && (
           <div className="space-y-3">
-            <SidebarSeparator className="bg-black" />
             <div className="flex items-center space-x-3 p-2">
               {session.user.image && (
                 <img
@@ -61,7 +60,7 @@ export function AppSidebar() {
                 />
               )}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-black truncate">
+                <p className="text-md font-medium text-black truncate">
                   {session.user.name}
                 </p>
                 <p className="text-xs text-gray-600 truncate">

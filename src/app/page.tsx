@@ -4,6 +4,7 @@ import { useSession, signIn } from 'next-auth/react'
 import { useState } from 'react'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { RepositoriesList } from '@/components/RepositoriesList'
 
 export default function Home() {
   const { data: session } = useSession()
@@ -28,78 +29,15 @@ export default function Home() {
             {/* Welcome Section */}
             <div className="text-center">
               <h2 className="text-4xl font-bold text-black mb-4">
-                Welcome back, {session.user.name}
+                Welcome {session.user.name}
               </h2>
               <p className="text-gray-600 text-lg">
-                You're successfully signed in with GitHub
+                Below are your repositories and their change logs
               </p>
             </div>
 
-            {/* User Profile Card */}
-            <Card className="border-black">
-              <CardHeader>
-                <CardTitle className="text-black">User Profile</CardTitle>
-                <CardDescription>Your GitHub account information</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center space-x-4">
-                  {session.user.image && (
-                    <img
-                      src={session.user.image}
-                      alt="Profile"
-                      className="w-16 h-16 rounded-full border-2 border-black"
-                    />
-                  )}
-                  <div>
-                    <p className="text-xl font-semibold text-black">
-                      {session.user.name}
-                    </p>
-                    <p className="text-gray-600">
-                      {session.user.email}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Features Section */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <Card className="border-black">
-                <CardHeader>
-                  <CardTitle className="text-black">Database</CardTitle>
-                  <CardDescription>MongoDB Integration</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600">
-                    Seamless MongoDB connection with session management
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card className="border-black">
-                <CardHeader>
-                  <CardTitle className="text-black">Authentication</CardTitle>
-                  <CardDescription>GitHub OAuth</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600">
-                    Secure OAuth authentication with GitHub
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card className="border-black">
-                <CardHeader>
-                  <CardTitle className="text-black">Modern UI</CardTitle>
-                  <CardDescription>Clean Design</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600">
-                    Minimalist design with shadcn components
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
+            {/* Repositories */}
+            <RepositoriesList />
           </div>
         ) : (
           <div className="min-h-screen flex items-center justify-center">
