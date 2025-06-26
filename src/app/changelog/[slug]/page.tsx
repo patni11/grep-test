@@ -7,9 +7,9 @@ import { Card, CardContent } from '@/components/ui/card'
 import { CalendarDays, GitCommit, Eye } from 'lucide-react'
 
 interface ChangelogPageProps {
-  params: {
+  params: Promise<{
     slug: string
-  }
+  }>
 }
 
 function formatDate(dateString: string) {
@@ -122,7 +122,7 @@ function parseMarkdown(content: string) {
 }
 
 export default async function ChangelogPage({ params }: ChangelogPageProps) {
-    const { slug } = await params
+  const { slug } = await params
   const changelog = await getChangelogBySlug(slug)
   
   if (!changelog || !changelog.is_published) {
@@ -268,28 +268,3 @@ export default async function ChangelogPage({ params }: ChangelogPageProps) {
     </div>
   )
 }
-
-export async function generateMetadata({ params }: ChangelogPageProps) {
-    const { slug } = await params
-  const changelog = await getChangelogBySlug(slug)
-  
-  if (!changelog) {
-    return {
-      title: 'Changelog Not Found',
-    }
-  }
-
-  const repository = await getRepositoryById(changelog.repo_id)
-  
-  return {
-    title: `${changelog.title} | Changelog`,
-    description: `View the latest changes and updates for ${repository?.repo_full_name || 'this repository'}`,
-    openGraph: {
-      title: changelog.title,
-      description: `Latest changes for ${repository?.repo_full_name}`,
-      type: 'article',
-      publishedTime: changelog.created_at.toISOString(),
-      modifiedTime: changelog.updated_at.toISOString(),
-    },
-  }
-} 

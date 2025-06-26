@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
-import { authOptions } from '@/app/api/auth/[...nextauth]/route'
+import { authOptions } from '@/lib/auth'
 import { GitHubService } from '@/lib/github'
 import { findOrCreateRepository, updateRepositorySync } from '@/lib/db/repositories'
-import { initializeDatabase } from '@/lib/db/init'
+//import { initializeDatabase } from '@/lib/db/init'
 
 export async function POST(request: NextRequest) {
   try {
     // Initialize database on first access
-    await initializeDatabase()
+    //await initializeDatabase()
     
     const session = await getServerSession(authOptions)
     

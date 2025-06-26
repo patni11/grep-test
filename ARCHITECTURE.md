@@ -1,114 +1,232 @@
 # Application Architecture
 
 ## Overview
-This is a Next.js application that provides changelog management for GitHub repositories. Users authenticate with GitHub OAuth and can view/manage their repositories and changelogs.
+This is a Next.js application called "Delta" that provides automated changelog generation for GitHub repositories. Users authenticate with GitHub OAuth, connect their repositories, and can generate AI-powered changelogs from their commit history. The application provides both a management dashboard and public changelog viewing capabilities.
 
 ## Technology Stack
-- **Framework**: Next.js 15 (App Router)
-- **Authentication**: NextAuth.js with GitHub OAuth
-- **Database**: MongoDB with MongoDB Adapter
-- **UI**: shadcn/ui components with Tailwind CSS
-- **Design**: Black and white minimalist theme
+- **Framework**: Next.js 15 (App Router) with TypeScript
+- **Authentication**: NextAuth.js v4 with GitHub OAuth provider
+- **Database**: MongoDB with native MongoDB driver (no ORM)
+- **AI**: OpenAI GPT for intelligent changelog generation
+- **UI Framework**: shadcn/ui components with Tailwind CSS
+- **Icons**: Lucide React
+- **Styling**: Tailwind CSS with black and white minimalist theme
+- **Fonts**: Geist Sans and Geist Mono
 
-## Authentication Flow
-1. Users sign in with GitHub OAuth via NextAuth.js
-2. Session data includes user profile (name, email, avatar)
-3. Authentication state determines UI visibility (sidebar, features)
-4. Unauthenticated users see only sign-in interface
+## Core Features
 
-## App Structure
+### 1. GitHub OAuth Authentication
+- Users sign in with GitHub OAuth to access repository data
+- Scopes requested: `read:user user:email repo` for full repository access
+- Access tokens are stored securely for GitHub API calls
+- JWT-based session management (no database sessions)
 
-### Pages (`src/app/`)
-- **`page.tsx`** - Main dashboard page
-  - Shows sign-in form for unauthenticated users
-  - Shows welcome message + repositories list for authenticated users
+### 2. Repository Management
+- **Discovery**: Fetches all user repositories from GitHub API
+- **Connection**: Users can connect repositories to enable changelog generation
+- **Caching**: Repository data cached in MongoDB with sync tracking
+- **Status Tracking**: Connected vs non-connected repository states
+- **Pagination**: Supports paginated repository listing with load more functionality
+
+### 3. AI-Powered Changelog Generation
+- **Commit Analysis**: Fetches latest commits from GitHub API
+- **Pattern Recognition**: Categorizes commits (features, fixes, improvements, etc.)
+- **Content Generation**: Uses OpenAI GPT to create human-readable changelogs
+- **Versioning**: Auto-generates semantic versions based on dates
+- **Publishing**: Changelogs are immediately published with public URLs
+
+### 4. Public Changelog Viewing
+- **Public URLs**: Each changelog has a unique slug for public sharing
+- **Markdown Rendering**: Custom markdown parser for consistent formatting
+- **Responsive Design**: Mobile-friendly changelog display
+- **SEO Optimization**: Proper metadata for search engines
+
+## Application Structure
+
+### Frontend Architecture
+
+#### Pages (`src/app/`)
+- **`page.tsx`** - Main dashboard
+  - **Unauthenticated**: Sign-in interface with hero section and GitHub OAuth
+  - **Authenticated**: Welcome message with repositories list
 - **`layout.tsx`** - Root layout with session provider and conditional sidebar
-- **`auth/error/page.tsx`** - Authentication error page
+- **`auth/error/page.tsx`** - Authentication error handling
+- **`changelog/[slug]/page.tsx`** - Public changelog viewing with custom markdown parser
 
-### API Routes (`src/app/api/`)
+#### Components (`src/components/`)
+
+**Layout Components:**
+- **`ConditionalSidebarLayout.tsx`** - Authentication-aware sidebar container
+- **`app-sidebar.tsx`** - Navigation sidebar with user profile and logout
+- **`SessionProvider.tsx`** - NextAuth session context wrapper
+
+**Feature Components:**
+- **`RepositoriesList.tsx`** - Complex repository management interface
+  - Pagination with load more functionality
+  - Real-time status tracking (connecting, generating)
+  - Repository actions (connect, generate, view changelogs)
+  - Loading states and error handling
+  - Refresh capability with GitHub API sync
+- **`ChangelogActions.tsx`** - Changelog sharing and export actions
+
+**UI Components (`src/components/ui/`):**
+- Complete shadcn/ui component library
+- Consistent black border, white background theme
+- Custom styling for accessibility and brand consistency
+
+### Backend Architecture
+
+#### API Routes (`src/app/api/`)
+
+**Authentication:**
 - **`auth/[...nextauth]/route.ts`** - NextAuth configuration
   - GitHub OAuth provider setup
-  - MongoDB adapter for session storage
-  - Session and JWT callbacks
-- **`repositories/route.ts`** - GitHub repositories endpoint
-  - Fetches user's repositories (currently mock data)
-  - Authentication required
-- **`webhooks/github/route.ts`** - GitHub webhook handler (placeholder)
+  - Custom session and JWT callbacks
+  - User data synchronization with MongoDB
 
-### Components (`src/components/`)
+**Repository Management:**
+- **`repositories/route.ts`** - Primary repository API
+  - GET: Fetch repositories with pagination and caching
+  - POST: Connect new repositories
+  - Supports both cached and live GitHub API data
+  - Intelligent sorting (changelogs first, then by activity)
+- **`repositories/connect/route.ts`** - Repository connection endpoint
+- **`repositories/[id]/changelogs/route.ts`** - Repository-specific changelog operations
 
-#### Layout Components
-- **`ConditionalSidebarLayout.tsx`** - Wrapper that shows/hides sidebar based on auth
-- **`app-sidebar.tsx`** - Main sidebar with navigation and user profile
-- **`SessionProvider.tsx`** - NextAuth session provider wrapper
+**Changelog Operations:**
+- **`repositories/changelogs/generate/route.ts`** - AI changelog generation
+  - Fetches commits from GitHub API
+  - Stores commits for historical reference
+  - Generates changelog using OpenAI
+  - Creates public changelog with unique slug
 
-#### Feature Components
-- **`RepositoriesList.tsx`** - Displays user's GitHub repositories
-  - Shows connection status (connected/not connected)
-  - Action buttons (View, Generate, Connect)
-  - Loading and error states
+**Webhooks:**
+- **`webhooks/github/route.ts`** - GitHub webhook handler (placeholder for future implementation)
 
-#### UI Components (`src/components/ui/`)
-- **shadcn/ui components**: Button, Card, Sidebar, Avatar, Badge, etc.
-- **Consistent styling**: Black borders, white backgrounds, black text
+### Database Layer (`src/lib/db/`)
 
-### Utilities (`src/lib/`)
-- **`mongodb.ts`** - MongoDB connection setup
-- **`utils.ts`** - Utility functions (cn for className merging)
+#### Collections and Schemas (`schemas.ts`)
+- **Users**: GitHub profile data with access tokens
+- **Repositories**: Connected repository metadata with sync tracking
+- **Changelogs**: Generated changelog content with public slugs
+- **Commits**: Historical commit data for reference
+- **Proper indexing** for performance optimization
 
-### Types (`src/types/`)
-- **`next-auth.d.ts`** - NextAuth type extensions
+#### Database Operations
+- **`users.ts`** - User CRUD operations and GitHub profile sync
+- **`repositories.ts`** - Repository management with changelog statistics
+- **`changelogs.ts`** - Changelog CRUD with AI content generation
+- **`mongodb.ts`** - Connection management with development/production optimizations
 
-## Key Features
+### External Integrations
 
-### Conditional UI Based on Authentication
-- **Unauthenticated**: Clean sign-in interface, no sidebar
-- **Authenticated**: Full dashboard with sidebar, repositories, profile
+#### GitHub API (`src/lib/github.ts`)
+- **GitHubService class** for authenticated API calls
+- **Repository fetching** with metadata (stars, forks, language, etc.)
+- **Commit history retrieval** with author information
+- **Pagination handling** for large repository lists
+- **Error handling** with proper status codes
 
-### Sidebar Navigation
-- **Top**: Home navigation button
-- **Bottom**: User profile section with logout functionality
-- **Collapsible**: Can be toggled with hamburger menu
-- **Authentication-gated**: Only visible when user is signed in
-
-### Repository Management
-- **List View**: Shows user's GitHub repositories in cards
-- **Status Tracking**: Connected vs not connected repositories
-- **Actions**: View changelogs, generate new changelogs, connect repositories
-- **Mock Data**: Currently uses placeholder data, ready for GitHub API integration
-
-### Design System
-- **Theme**: Strict black and white color scheme
-- **Components**: shadcn/ui for consistency
-- **Responsive**: Mobile-friendly layout
-- **Accessibility**: Proper contrast and semantic HTML
+#### OpenAI Integration (`src/lib/openai.ts`)
+- **Advanced AI prompting** for changelog generation
+- **Commit pattern analysis** (features, fixes, improvements, etc.)
+- **Monthly commit grouping** for better organization
+- **Fallback content generation** when AI is unavailable
+- **Repository context awareness** (sparse vs active repos)
 
 ## Data Flow
 
-1. **Authentication**: GitHub OAuth → NextAuth → MongoDB session storage
-2. **Repository Data**: API call → `/api/repositories` → Mock/GitHub API → Component state
-3. **UI State**: Session status → Conditional rendering → Sidebar visibility
-4. **User Actions**: Button clicks → Event handlers → API calls → State updates
+### Authentication Flow
+1. User clicks GitHub sign-in → NextAuth GitHub provider
+2. OAuth redirect to GitHub → User authorization
+3. GitHub returns with access token → NextAuth stores in JWT
+4. Custom callbacks sync user data to MongoDB
+5. Session includes user profile and GitHub access token
 
-## Future Integration Points
+### Repository Discovery Flow
+1. Authenticated user requests repositories
+2. Check MongoDB cache for existing data
+3. If cache miss or refresh requested → GitHub API call
+4. Store/update repository metadata in MongoDB
+5. Return paginated results with connection status
 
-### GitHub API Integration
-- Replace mock repository data with real GitHub API calls
-- Use OAuth access token for authenticated requests
-- Implement webhook handling for real-time updates
+### Changelog Generation Flow
+1. User clicks generate for connected repository
+2. Verify user access to repository
+3. Fetch recent commits from GitHub API (last 20)
+4. Store commits in MongoDB for historical reference
+5. Analyze commits for patterns and categorization
+6. Generate changelog content using OpenAI
+7. Create changelog record with unique public slug
+8. Update repository to mark as having changelogs
 
-### Changelog Management
-- Database schema for storing changelog data
-- CRUD operations for changelog entries
-- AI-powered changelog generation from commit history
-
-### Repository Connection
-- Database tracking of connected repositories
-- Repository-specific settings and configurations
-- Webhook setup for automated changelog triggers
+### Public Changelog Access
+1. Public URL accessed with changelog slug
+2. Database lookup for published changelog
+3. Custom markdown parsing and rendering
+4. Responsive display with sharing capabilities
 
 ## Security Considerations
-- **Session Management**: Secure session storage in MongoDB
-- **API Protection**: Authentication required for sensitive endpoints
-- **Environment Variables**: Secure storage of OAuth credentials and secrets
-- **CORS**: Proper API route protection
+
+### Authentication & Authorization
+- **GitHub OAuth scopes**: Minimal required permissions (`read:user user:email repo`)
+- **Access token storage**: Encrypted in MongoDB with proper session management
+- **API protection**: All sensitive endpoints require authentication
+- **Repository access**: Verified ownership before operations
+
+### Data Protection
+- **Environment variables**: Secure credential storage
+- **MongoDB connection**: Proper connection pooling and error handling
+- **Public URLs**: Only published changelogs accessible via slugs
+- **User isolation**: All operations scoped to authenticated user
+
+## Performance Optimizations
+
+### Caching Strategy
+- **Repository data**: Cached in MongoDB with last sync timestamps
+- **Pagination**: Efficient database queries with proper indexing
+- **Load more pattern**: Incremental loading for better UX
+
+### Database Optimization
+- **Proper indexing**: User ID, GitHub repo ID, changelog slugs
+- **Connection pooling**: MongoDB connection reuse in production
+- **Aggregation pipelines**: Efficient changelog statistics
+
+### Frontend Performance
+- **Component optimization**: Proper loading states and error boundaries
+- **Parallel operations**: Multiple repositories processed simultaneously
+- **Responsive design**: Mobile-first approach with performance in mind
+
+## Future Enhancements
+
+### Planned Features
+- **Webhook integration**: Real-time changelog generation on new commits
+- **Team collaboration**: Multi-user repository access
+- **Advanced filtering**: Repository search and filtering capabilities
+- **Changelog templates**: Customizable changelog formats
+- **API webhooks**: External integrations for changelog updates
+
+### Scalability Considerations
+- **Database sharding**: For large user bases
+- **CDN integration**: For public changelog distribution
+- **Background job processing**: For heavy AI operations
+- **Rate limiting**: GitHub API usage optimization
+
+## Development Workflow
+
+### Local Development
+- Hot reloading with Turbopack for fast development
+- MongoDB connection pooling in development mode
+- Environment variable validation
+
+### Error Handling
+- Comprehensive error boundaries and user feedback
+- GitHub API error handling with fallback strategies
+- OpenAI integration with fallback content generation
+- Proper HTTP status codes and error messages
+
+### Code Organization
+- Clear separation of concerns (UI, API, Database, External services)
+- TypeScript interfaces for type safety
+- Consistent naming conventions and file structure
+- Proper import/export patterns

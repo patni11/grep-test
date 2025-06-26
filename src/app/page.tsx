@@ -52,7 +52,7 @@ export default function Home() {
             {/* Quote Overlay */}
             <div className="absolute bottom-8 left-8 bg-white/90 backdrop-blur-sm rounded-lg p-6 max-w-md shadow-lg">
               <p className="text-gray-800 text-sm mb-3 italic">
-                "Talk is cheap. Show me the code."
+              &quot;Talk is cheap. Show me the code.&quot;
               </p>
               <p className="text-gray-600 text-sm font-medium">
                 — Linus Torvalds

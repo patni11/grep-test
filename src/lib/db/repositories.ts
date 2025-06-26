@@ -52,12 +52,6 @@ export async function getRepositoryById(repoId: string): Promise<RepositoryDocum
   return await collection.findOne({ _id: new ObjectId(repoId) as any })
 }
 
-// Get all repositories for a user
-export async function getUserRepositories(userId: string): Promise<RepositoryDocument[]> {
-  const collection = await getRepositoriesCollection()
-  return await collection.find({ user_id: userId }).sort({ connected_at: -1 }).toArray()
-}
-
 // Update repository information
 export async function updateRepository(
   repoId: string,
@@ -102,10 +96,8 @@ export async function findOrCreateRepository(repositoryData: {
   stargazers_count?: number
   forks_count?: number
 }): Promise<RepositoryDocument> {
-  const collection = await getRepositoriesCollection()
-  
   // Try to find existing repository
-  let repo = await getRepositoryByGithubId(repositoryData.github_repo_id)
+  const repo = await getRepositoryByGithubId(repositoryData.github_repo_id)
   
   if (repo) {
     // Update existing repository with latest data
@@ -129,12 +121,6 @@ export async function findOrCreateRepository(repositoryData: {
   }
 }
 
-// Delete repository
-export async function deleteRepository(repoId: string): Promise<boolean> {
-  const collection = await getRepositoriesCollection()
-  const result = await collection.deleteOne({ _id: repoId as any })
-  return result.deletedCount > 0
-}
 
 // Get repository with changelog existence check and latest public slug
 export async function getRepositoryWithStats(repoId: string): Promise<RepositoryDocument & { hasChangelogs: boolean; latestChangelogSlug?: string } | null> {

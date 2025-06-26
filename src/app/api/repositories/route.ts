@@ -1,18 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
-import { authOptions } from '@/app/api/auth/[...nextauth]/route'
+import { authOptions } from '@/lib/auth'
 import { GitHubService, GitHubRepository } from '@/lib/github'
 import { 
-  getUserRepositories, 
   findOrCreateRepository, 
   getRepositoryWithStats,
   getUserRepositoriesPaginated 
 } from '@/lib/db/repositories'
-import { initializeDatabase } from '@/lib/db/init'
+//import { initializeDatabase } from '@/lib/db/init'
 
 export async function GET(request: NextRequest) {
   try {
-    await initializeDatabase()
+    //await initializeDatabase()
     const session = await getServerSession(authOptions)
     
     if (!session?.user || !session.accessToken) {

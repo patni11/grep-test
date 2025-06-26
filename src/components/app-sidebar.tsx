@@ -2,6 +2,8 @@
 
 import { Home, LogOut, User } from 'lucide-react'
 import { useSession, signOut } from 'next-auth/react'
+import Link from 'next/link'
+import Image from 'next/image'
 import {
   Sidebar,
   SidebarContent,
@@ -37,10 +39,10 @@ export function AppSidebar() {
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild className="hover:bg-black hover:text-white p-2">
-                  <a href="/">
+                  <Link href="/">
                     <Home className="w-8 h-8" />
                     <span className="text-md font-semibold">Home</span>
-                  </a>
+                  </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
@@ -53,9 +55,11 @@ export function AppSidebar() {
           <div className="space-y-3">
             <div className="flex items-center space-x-3 p-2">
               {session.user.image && (
-                <img
+                <Image
                   src={session.user.image}
                   alt="Profile"
+                  width={32}
+                  height={32}
                   className="w-8 h-8 rounded-full border border-black"
                 />
               )}
