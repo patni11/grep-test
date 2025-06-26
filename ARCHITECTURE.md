@@ -1,5 +1,7 @@
 # Application Architecture
 
+I USE THIS TO TELL AI THE OVERALL ARCHITECTURE
+
 ## Overview
 This is a Next.js application called "Delta" that provides automated changelog generation for GitHub repositories. Users authenticate with GitHub OAuth, connect their repositories, and can generate AI-powered changelogs from their commit history. The application provides both a management dashboard and public changelog viewing capabilities.
 
@@ -50,8 +52,6 @@ This is a Next.js application called "Delta" that provides automated changelog g
   - **Unauthenticated**: Sign-in interface with hero section and GitHub OAuth
   - **Authenticated**: Welcome message with repositories list
 - **`layout.tsx`** - Root layout with session provider and conditional sidebar
-- **`auth/error/page.tsx`** - Authentication error handling
-- **`changelog/[slug]/page.tsx`** - Public changelog viewing with custom markdown parser
 
 #### Components (`src/components/`)
 
@@ -179,54 +179,3 @@ This is a Next.js application called "Delta" that provides automated changelog g
 - **MongoDB connection**: Proper connection pooling and error handling
 - **Public URLs**: Only published changelogs accessible via slugs
 - **User isolation**: All operations scoped to authenticated user
-
-## Performance Optimizations
-
-### Caching Strategy
-- **Repository data**: Cached in MongoDB with last sync timestamps
-- **Pagination**: Efficient database queries with proper indexing
-- **Load more pattern**: Incremental loading for better UX
-
-### Database Optimization
-- **Proper indexing**: User ID, GitHub repo ID, changelog slugs
-- **Connection pooling**: MongoDB connection reuse in production
-- **Aggregation pipelines**: Efficient changelog statistics
-
-### Frontend Performance
-- **Component optimization**: Proper loading states and error boundaries
-- **Parallel operations**: Multiple repositories processed simultaneously
-- **Responsive design**: Mobile-first approach with performance in mind
-
-## Future Enhancements
-
-### Planned Features
-- **Webhook integration**: Real-time changelog generation on new commits
-- **Team collaboration**: Multi-user repository access
-- **Advanced filtering**: Repository search and filtering capabilities
-- **Changelog templates**: Customizable changelog formats
-- **API webhooks**: External integrations for changelog updates
-
-### Scalability Considerations
-- **Database sharding**: For large user bases
-- **CDN integration**: For public changelog distribution
-- **Background job processing**: For heavy AI operations
-- **Rate limiting**: GitHub API usage optimization
-
-## Development Workflow
-
-### Local Development
-- Hot reloading with Turbopack for fast development
-- MongoDB connection pooling in development mode
-- Environment variable validation
-
-### Error Handling
-- Comprehensive error boundaries and user feedback
-- GitHub API error handling with fallback strategies
-- OpenAI integration with fallback content generation
-- Proper HTTP status codes and error messages
-
-### Code Organization
-- Clear separation of concerns (UI, API, Database, External services)
-- TypeScript interfaces for type safety
-- Consistent naming conventions and file structure
-- Proper import/export patterns

@@ -1,5 +1,7 @@
 # Implementation Plan: GitHub API Integration + MongoDB Setup
 
+I USE THIS TO TELL AI HOW TO DO SPECIFIC TASKS PROPERLY
+
 ## Current State Analysis
 - ✅ NextAuth with GitHub OAuth working
 - ✅ MongoDB adapter configured for sessions
