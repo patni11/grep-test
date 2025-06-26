@@ -1,6 +1,13 @@
 # Grep-Test or Delta 
 A modern full-stack web application built with Next.js 14, MongoDB, and GitHub authentication using NextAuth.js.
 
+To build it fast I have created architecture.md and scratchpad.md
+
+architecture md works as a highlevel context for AI and sracthpad.md works as a more granual stuff I am working on
+Using both allows AI to stay on track and help me ship things faster.
+
+I review all the changes and update platform accordingly
+
 ## 🚀 Live Demo & Platform
 
 - **🎥 Demo Video**: [Watch the Demo](https://www.loom.com/share/ef9e272553ce4334b7c5e5a84331d5b5)
