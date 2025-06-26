@@ -122,7 +122,8 @@ function parseMarkdown(content: string) {
 }
 
 export default async function ChangelogPage({ params }: ChangelogPageProps) {
-  const changelog = await getChangelogBySlug(params.slug)
+    const { slug } = await params
+  const changelog = await getChangelogBySlug(slug)
   
   if (!changelog || !changelog.is_published) {
     notFound()
