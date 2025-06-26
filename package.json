@@ -1,7 +1,8 @@
 {
-  "name": "greptile",
+  "name": "delta-changelog-generator",
   "version": "0.1.0",
   "private": true,
+  "description": "Generate change logs in one click for your repositories",
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
