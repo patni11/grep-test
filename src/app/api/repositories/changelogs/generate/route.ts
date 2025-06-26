@@ -97,7 +97,6 @@ export async function POST(request: NextRequest) {
           public_slug: changelog.public_slug,
           is_published: changelog.is_published,
           created_at: changelog.created_at,
-          repo_id: repoId
         },
         message: `Generated changelog from ${commitData.length} commits`
       })

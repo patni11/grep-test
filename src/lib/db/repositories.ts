@@ -52,16 +52,6 @@ export async function getRepositoryById(repoId: string): Promise<RepositoryDocum
   return await collection.findOne({ _id: new ObjectId(repoId) as any })
 }
 
-// Find repository by slug (repo_full_name or repo_name)
-export async function getRepositoryBySlug(slug: string): Promise<RepositoryDocument | null> {
-  const collection = await getRepositoriesCollection()
-  
-  // Try to find by repo_full_name first (e.g., "owner/repo")
-  let repo = await collection.findOne({ public_slug: slug })
-  
-  return repo
-}
-
 // Get all repositories for a user
 export async function getUserRepositories(userId: string): Promise<RepositoryDocument[]> {
   const collection = await getRepositoriesCollection()
@@ -146,35 +136,77 @@ export async function deleteRepository(repoId: string): Promise<boolean> {
   return result.deletedCount > 0
 }
 
-// Get repository with changelog count
-export async function getRepositoryWithStats(repoId: string): Promise<RepositoryDocument & { changelogCount: number } | null> {
+// Get repository with changelog existence check and latest public slug
+export async function getRepositoryWithStats(repoId: string): Promise<RepositoryDocument & { hasChangelogs: boolean; latestChangelogSlug?: string } | null> {
   const client = await clientPromise
   const db = client.db()
   
   const pipeline = [
-    { $match: { _id: repoId as any } },
+    { $match: { _id: new ObjectId(repoId) } },
+    {
+      $addFields: {
+        _id_str: { $toString: '$_id' }
+      }
+    },
     {
       $lookup: {
         from: COLLECTIONS.CHANGELOGS,
-        localField: '_id',
+        localField: '_id_str',
         foreignField: 'repo_id',
         as: 'changelogs'
       }
     },
     {
       $addFields: {
-        changelogCount: { $size: '$changelogs' }
+        hasChangelogs: { $gt: [{ $size: '$changelogs' }, 0] },
+        latestChangelogSlug: {
+          $cond: {
+            if: { $gt: [{ $size: '$changelogs' }, 0] },
+            then: {
+              $let: {
+                vars: {
+                  sortedChangelogs: {
+                    $sortArray: {
+                      input: '$changelogs',
+                      sortBy: { created_at: -1 }
+                    }
+                  },
+                  publishedChangelogs: {
+                    $filter: {
+                      input: {
+                        $sortArray: {
+                          input: '$changelogs',
+                          sortBy: { created_at: -1 }
+                        }
+                      },
+                      cond: { $eq: ['$$this.is_published', true] }
+                    }
+                  }
+                },
+                in: {
+                  $cond: {
+                    if: { $gt: [{ $size: '$$publishedChangelogs' }, 0] },
+                    then: { $arrayElemAt: ['$$publishedChangelogs.public_slug', 0] },
+                    else: { $arrayElemAt: ['$$sortedChangelogs.public_slug', 0] }
+                  }
+                }
+              }
+            },
+            else: null
+          }
+        }
       }
     },
     {
       $project: {
-        changelogs: 0 // Don't include the full changelogs array
+        changelogs: 0, // Don't include the full changelogs array
+        _id_str: 0 // Don't include the temporary field
       }
     }
   ]
   
   const repos = await db.collection(COLLECTIONS.REPOSITORIES).aggregate(pipeline).toArray()
-  return repos[0] as (RepositoryDocument & { changelogCount: number }) || null
+  return repos[0] as (RepositoryDocument & { hasChangelogs: boolean; latestChangelogSlug?: string }) || null
 }
 
 // Check if user has access to repository
@@ -202,7 +234,7 @@ export async function getUserRepositoriesPaginated(
   page: number = 1, 
   limit: number = 10
 ): Promise<{
-  repositories: (RepositoryDocument & { changelogCount: number })[]
+  repositories: (RepositoryDocument & { hasChangelogs: boolean; latestChangelogSlug?: string })[]
   totalCount: number
   hasMore: boolean
 }> {
@@ -211,20 +243,61 @@ export async function getUserRepositoriesPaginated(
   
   const skip = (page - 1) * limit
   
-  // Aggregation pipeline to get repositories with changelog count and proper sorting
+  // Aggregation pipeline to get repositories with changelog existence and proper sorting
   const pipeline = [
     { $match: { user_id: userId } },
     {
+      $addFields: {
+        _id_str: { $toString: '$_id' }
+      }
+    },
+    {
       $lookup: {
         from: COLLECTIONS.CHANGELOGS,
-        localField: '_id',
+        localField: '_id_str',
         foreignField: 'repo_id',
         as: 'changelogs'
       }
     },
     {
       $addFields: {
-        changelogCount: { $size: '$changelogs' },
+        hasChangelogs: { $gt: [{ $size: '$changelogs' }, 0] },
+        latestChangelogSlug: {
+          $cond: {
+            if: { $gt: [{ $size: '$changelogs' }, 0] },
+            then: {
+              $let: {
+                vars: {
+                  sortedChangelogs: {
+                    $sortArray: {
+                      input: '$changelogs',
+                      sortBy: { created_at: -1 }
+                    }
+                  },
+                  publishedChangelogs: {
+                    $filter: {
+                      input: {
+                        $sortArray: {
+                          input: '$changelogs',
+                          sortBy: { created_at: -1 }
+                        }
+                      },
+                      cond: { $eq: ['$$this.is_published', true] }
+                    }
+                  }
+                },
+                in: {
+                  $cond: {
+                    if: { $gt: [{ $size: '$$publishedChangelogs' }, 0] },
+                    then: { $arrayElemAt: ['$$publishedChangelogs.public_slug', 0] },
+                    else: { $arrayElemAt: ['$$sortedChangelogs.public_slug', 0] }
+                  }
+                }
+              }
+            },
+            else: null
+          }
+        },
         sortKey: {
           $cond: {
             if: { $gt: [{ $size: '$changelogs' }, 0] },
@@ -242,13 +315,14 @@ export async function getUserRepositoriesPaginated(
     },
     {
       $sort: {
-        changelogCount: -1, // Repositories with changelogs first
+        hasChangelogs: -1, // Repositories with changelogs first (true = 1, false = 0)
         sortKey: -1 // Then by most recent activity
       }
     },
     {
       $project: {
-        changelogs: 0 // Don't include the full changelogs array
+        changelogs: 0, // Don't include the full changelogs array
+        _id_str: 0 // Don't include the temporary field
       }
     }
   ]
@@ -263,7 +337,7 @@ export async function getUserRepositoriesPaginated(
   const repositories = await db.collection(COLLECTIONS.REPOSITORIES).aggregate(paginatedPipeline).toArray()
   
   return {
-    repositories: repositories as (RepositoryDocument & { changelogCount: number })[],
+    repositories: repositories as (RepositoryDocument & { hasChangelogs: boolean; latestChangelogSlug?: string })[],
     totalCount,
     hasMore: totalCount > (skip + limit)
   }

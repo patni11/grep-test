@@ -44,7 +44,8 @@ export async function GET(request: NextRequest) {
             stargazers_count: repo.stargazers_count || 0,
             forks_count: repo.forks_count || 0,
             isConnected: true,
-            changelogCount: repo.changelogCount,
+            hasChangelogs: repo.hasChangelogs,
+            latestChangelogSlug: repo.latestChangelogSlug,
             lastSync: repo.last_sync_at,
             connectedAt: repo.connected_at,
           }))
@@ -121,7 +122,8 @@ export async function GET(request: NextRequest) {
               forks_count: gitRepo.forks_count,
               // Additional fields for UI
               isConnected: true, // Since we're storing it, it's connected
-              changelogCount: repoWithStats?.changelogCount || 0,
+              hasChangelogs: repoWithStats?.hasChangelogs || false,
+              latestChangelogSlug: repoWithStats?.latestChangelogSlug,
               lastSync: repoDoc.last_sync_at,
               connectedAt: repoDoc.connected_at
             }
@@ -141,7 +143,7 @@ export async function GET(request: NextRequest) {
               stargazers_count: gitRepo.stargazers_count,
               forks_count: gitRepo.forks_count,
               isConnected: false,
-              changelogCount: 0
+              hasChangelogs: false
             }
           }
         })
@@ -149,9 +151,9 @@ export async function GET(request: NextRequest) {
 
       // Sort repositories: with changelogs first, then by most recent activity
       const sortedRepos = processedRepos.sort((a, b) => {
-        // First sort by changelog count (descending)
-        if (a.changelogCount !== b.changelogCount) {
-          return b.changelogCount - a.changelogCount
+        // First sort by changelog existence (hasChangelogs = true first)
+        if (a.hasChangelogs !== b.hasChangelogs) {
+          return b.hasChangelogs ? 1 : -1
         }
         
         // Then sort by most recent activity
@@ -195,7 +197,8 @@ export async function GET(request: NextRequest) {
             stargazers_count: repo.stargazers_count || 0,
             forks_count: repo.forks_count || 0,
             isConnected: true,
-            changelogCount: repo.changelogCount,
+            hasChangelogs: repo.hasChangelogs,
+            latestChangelogSlug: repo.latestChangelogSlug,
             lastSync: repo.last_sync_at,
             connectedAt: repo.connected_at
           }))

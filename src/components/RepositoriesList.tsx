@@ -20,7 +20,8 @@ interface Repository {
   stargazers_count: number
   forks_count: number
   isConnected: boolean
-  changelogCount?: number
+  hasChangelogs?: boolean
+  latestChangelogSlug?: string
   lastSync?: string
   connectedAt?: string
 }
@@ -158,45 +159,15 @@ export function RepositoriesList() {
     }
   }
 
-  const handleView = async (githubRepoId: number, repoDbId: string) => {
-    try {
-      if (!repoDbId || repoDbId.trim() === '') {
-        setError('Repository ID is missing. Please reconnect the repository.')
-        return
-      }
-
-      // Fetch changelogs for this repository
-      const response = await fetch(`/api/repositories/${repoDbId}/changelogs`)
-      
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to fetch changelogs')
-      }
-
-      const data = await response.json()
-      
-      if (!data.changelogs || data.changelogs.length === 0) {
-        setError('No changelogs found for this repository. Generate one first.')
-        return
-      }
-
-      // Find the latest published changelog, or fall back to the latest one
-      const latestPublishedChangelog = data.changelogs.find((changelog: any) => changelog.is_published)
-      const latestChangelog = latestPublishedChangelog || data.changelogs[0]
-
-      if (!latestChangelog.public_slug) {
-        setError('Changelog URL not available. Please try generating a new changelog.')
-        return
-      }
-
-      // Redirect to the public changelog URL
-      const changelogUrl = `/changelog/${latestChangelog.public_slug}`
-      window.open(changelogUrl, '_blank')
-      
-    } catch (err) {
-      console.error('Error viewing changelog:', err)
-      setError(err instanceof Error ? err.message : 'Failed to view changelog')
+  const handleView = (publicSlug: string) => {
+    if (!publicSlug || publicSlug.trim() === '') {
+      setError('Changelog not available. Please try generating a new changelog.')
+      return
     }
+
+    // Navigate directly to the changelog using the public slug
+    const changelogUrl = `/changelog/${publicSlug}`
+    window.open(changelogUrl, '_blank')
   }
 
   const handleGenerate = async (githubRepoId: number, repoDbId: string, repoFullName: string) => {
@@ -235,7 +206,7 @@ export function RepositoriesList() {
         window.open(changelogUrl, '_blank')
       }
       
-      // Refresh the repositories list to update changelog count
+      // Refresh the repositories list to update changelog status
       await fetchRepositories()
     } catch (err) {
       console.error('Error generating changelog:', err)
@@ -249,10 +220,6 @@ export function RepositoriesList() {
     }
   }
 
-  const handleConnectNew = () => {
-    // TODO: Implement connect new repository logic (maybe show GitHub repo selector)
-    console.log('Connect new repository')
-  }
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
@@ -384,7 +351,17 @@ export function RepositoriesList() {
       {/* {message && (
         <Card className="border-green-500 bg-green-50">
           <CardContent className="p-4">
-            <p className="text-green-800 text-sm">{message}</p>
+            <div className="flex items-center justify-between">
+              <p className="text-green-800 text-sm">{message}</p>
+              <Button 
+                onClick={() => setMessage(null)} 
+                variant="ghost" 
+                size="sm" 
+                className="text-green-600 hover:text-green-800"
+              >
+                ✕
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )} */}
@@ -392,7 +369,7 @@ export function RepositoriesList() {
       <div className="space-y-4">
         {repositories.map((repo) => (
           <Card key={repo.id} className="border-black">
-            <CardContent className="p-6">
+            <CardContent>
               <div className="flex items-start justify-between">
                 <div className="flex items-start space-x-3 flex-1">
                   <Folder className="w-5 h-5 text-black mt-0.5" />
@@ -410,11 +387,6 @@ export function RepositoriesList() {
                         <Badge variant="outline" className="text-xs">
                           {repo.private ? 'Private' : 'Public'}
                         </Badge>
-                        {/* {repo.changelogCount && repo.changelogCount > 0 && (
-                          <Badge className="bg-green-100 text-green-800 text-xs">
-                            {repo.changelogCount} changelog{repo.changelogCount !== 1 ? 's' : ''}
-                          </Badge>
-                        )} */}
                       </div>
                     </div>
                     
@@ -442,31 +414,18 @@ export function RepositoriesList() {
                       <span>Updated {formatDate(repo.updated_at)}</span>
                     </div>
                     
-                    <p className="text-sm text-gray-600">
-                      {repo.isConnected ? (
-                        <>
-                          {repo.changelogCount === 0 ? (
-                            'Connected • No changelogs yet'
-                          ) : (
-                            `Connected • ${repo.changelogCount} changelog${repo.changelogCount !== 1 ? 's' : ''}`
-                          )}
-                        </>
-                      ) : (
-                        'Not connected to changelog generation'
-                      )}
-                    </p>
                   </div>
                 </div>
                 
                 <div className="flex space-x-2 ml-4">
                   {repo.isConnected ? (
                     <>
-                      {repo.changelogCount && repo.changelogCount > 0 && (
+                      {repo.hasChangelogs && repo.latestChangelogSlug && (
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleView(repo.github_repo_id, repo.id)}
-                          className="border-black text-black hover:bg-black hover:text-white"
+                          onClick={() => handleView(repo.latestChangelogSlug!)}
+                          className="bg-green-100 text-green-800 text-xs"
                         >
                           View
                         </Button>
@@ -559,7 +518,7 @@ export function RepositoriesList() {
       )}
       
       <Button
-        onClick={handleConnectNew}
+        onClick={handleRefresh}
         variant="outline"
         className="w-full border-black text-black hover:bg-black hover:text-white border-dashed"
       >

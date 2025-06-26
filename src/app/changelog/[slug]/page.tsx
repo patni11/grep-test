@@ -270,7 +270,8 @@ export default async function ChangelogPage({ params }: ChangelogPageProps) {
 }
 
 export async function generateMetadata({ params }: ChangelogPageProps) {
-  const changelog = await getChangelogBySlug(params.slug)
+    const { slug } = await params
+  const changelog = await getChangelogBySlug(slug)
   
   if (!changelog) {
     return {
