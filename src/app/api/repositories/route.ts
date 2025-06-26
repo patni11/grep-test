@@ -30,7 +30,8 @@ export async function GET(request: NextRequest) {
         storedRepos.map(async (repo) => {
           const repoWithStats = await getRepositoryWithStats(repo._id!)
           return {
-            id: repo.github_repo_id,
+            id: repo._id,
+            github_repo_id: repo.github_repo_id,
             name: repo.repo_name,
             full_name: repo.repo_full_name,
             private: repo.is_private,
@@ -43,8 +44,7 @@ export async function GET(request: NextRequest) {
             isConnected: true,
             changelogCount: repoWithStats?.changelogCount || 0,
             lastSync: repo.last_sync_at,
-            connectedAt: repo.connected_at,
-            repoId: repo._id
+            connectedAt: repo.connected_at
           }
         })
       )
@@ -96,7 +96,8 @@ export async function GET(request: NextRequest) {
             const repoWithStats = await getRepositoryWithStats(repoDoc._id!)
 
             return {
-              id: gitRepo.id,
+              id: repoDoc._id,
+              github_repo_id: gitRepo.id,
               name: gitRepo.name,
               full_name: gitRepo.full_name,
               private: gitRepo.private,
@@ -110,14 +111,14 @@ export async function GET(request: NextRequest) {
               isConnected: true, // Since we're storing it, it's connected
               changelogCount: repoWithStats?.changelogCount || 0,
               lastSync: repoDoc.last_sync_at,
-              connectedAt: repoDoc.connected_at,
-              repoId: repoDoc._id
+              connectedAt: repoDoc.connected_at
             }
           } catch (error) {
             console.error(`Error processing repository ${gitRepo.full_name}:`, error)
             // Return the repository without storage status if there's an error
             return {
-              id: gitRepo.id,
+              id: '', // No database ID since it failed to store
+              github_repo_id: gitRepo.id,
               name: gitRepo.name,
               full_name: gitRepo.full_name,
               private: gitRepo.private,
@@ -150,7 +151,8 @@ export async function GET(request: NextRequest) {
           storedRepos.map(async (repo) => {
             const repoWithStats = await getRepositoryWithStats(repo._id!)
             return {
-              id: repo.github_repo_id,
+              id: repo._id,
+              github_repo_id: repo.github_repo_id,
               name: repo.repo_name,
               full_name: repo.repo_full_name,
               private: repo.is_private,
@@ -163,8 +165,7 @@ export async function GET(request: NextRequest) {
               isConnected: true,
               changelogCount: repoWithStats?.changelogCount || 0,
               lastSync: repo.last_sync_at,
-              connectedAt: repo.connected_at,
-              repoId: repo._id
+              connectedAt: repo.connected_at
             }
           })
         )
@@ -231,6 +232,7 @@ export async function POST(request: NextRequest) {
       const allRepos = await githubService.getAllRepositories()
       const foundRepo = allRepos.find(repo => repo.id === repoId)
       if (!foundRepo) {
+        console.log("Repository not found api/repos")
         return NextResponse.json({ error: 'Repository not found' }, { status: 404 })
       }
       gitRepo = foundRepo

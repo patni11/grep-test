@@ -1,4 +1,4 @@
-import { Collection } from 'mongodb'
+import { Collection, ObjectId } from 'mongodb'
 import clientPromise from '@/lib/mongodb'
 import { COLLECTIONS, RepositoryDocument } from './schemas'
 
@@ -148,4 +148,23 @@ export async function getRepositoryWithStats(repoId: string): Promise<Repository
   
   const repos = await db.collection(COLLECTIONS.REPOSITORIES).aggregate(pipeline).toArray()
   return repos[0] as (RepositoryDocument & { changelogCount: number }) || null
+}
+
+// Check if user has access to repository
+export async function checkUserRepositoryAccess(
+  userId: string, 
+  repoId: string, 
+  repoFullName: string
+): Promise<RepositoryDocument | null> {
+  const collection = await getRepositoriesCollection()
+  console.log("repoId", repoId)
+  console.log("repoFullName", repoFullName)
+  console.log("userId", userId)
+  
+  // Check if repository exists, belongs to user, and matches the full name
+  return await collection.findOne({ 
+    _id: new ObjectId(repoId) as any,
+    user_id: userId,
+    repo_full_name: repoFullName
+  })
 } 

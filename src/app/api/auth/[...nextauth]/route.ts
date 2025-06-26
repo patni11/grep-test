@@ -1,13 +1,10 @@
 import NextAuth from 'next-auth'
 import { NextAuthOptions } from 'next-auth'
 import GithubProvider from 'next-auth/providers/github'
-import { MongoDBAdapter } from '@auth/mongodb-adapter'
-import clientPromise from '@/lib/mongodb'
-import { findOrCreateUser } from '@/lib/db/users'
-import { initializeCollections } from '@/lib/db/schemas'
+import { findOrCreateUser, getUserByGithubId } from '@/lib/db/users'
+import { initializeDatabase } from '@/lib/db'
 
 export const authOptions: NextAuthOptions = {
-  adapter: MongoDBAdapter(clientPromise),
   providers: [
     GithubProvider({
       clientId: process.env.GITHUB_CLIENT_ID!,
@@ -21,25 +18,18 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async signIn({ user, account, profile }) {
-      // Initialize database collections on first run
-      try {
-        const client = await clientPromise
-        const db = client.db()
-        await initializeCollections(db)
-      } catch (error) {
-        console.log('Collections already initialized or error:', error)
-      }
+      // Store user data in our custom users collection
 
-      // Store/update user data in our custom users collection
+//      await initializeDatabase()
       if (account?.provider === 'github' && profile) {
         try {
-          const githubProfile = profile as any // GitHub profile
+          const githubProfile = profile as any
           await findOrCreateUser({
             id: githubProfile.id?.toString() || user.id,
             login: githubProfile.login || githubProfile.name || user.name || '',
             email: githubProfile.email || user.email || '',
             avatar_url: githubProfile.avatar_url || user.image || '',
-            access_token: account.access_token, // Store GitHub access token for API calls
+            access_token: account.access_token, // Store GitHub access token
           })
         } catch (error) {
           console.error('Error storing user data:', error)
@@ -48,24 +38,35 @@ export const authOptions: NextAuthOptions = {
       
       return true
     },
-    async session({ session, token, user }) {
-      // Send properties to the client
-      if (session.user) {
-        session.user.id = user.id
+    async session({ session, token }) {
+      // Get user data from our custom collection and add to session
+      if (token.githubId) {
+        try {
+          const user = await getUserByGithubId(token.githubId as string)
+          if (user) {
+            session.user.id = user._id!
+            session.accessToken = user.access_token
+            session.user.name = user.username
+            session.user.email = user.email
+            session.user.image = user.avatar_url
+          }
+        } catch (error) {
+          console.error('Error fetching user in session:', error)
+        }
       }
       return session
     },
-    async jwt({ token, user, account }) {
-      // Persist the OAuth access_token to the token right after signin
-      if (account && user) {
-        token.id = user.id
+    async jwt({ token, user, account, profile }) {
+      // Store GitHub ID in JWT token for session callback
+      if (account?.provider === 'github' && profile) {
+        token.githubId = (profile as any).id?.toString()
         token.accessToken = account.access_token
       }
       return token
     },
   },
   session: {
-    strategy: 'database',
+    strategy: 'jwt', // Use JWT instead of database sessions
   },
   secret: process.env.NEXTAUTH_SECRET,
 }

@@ -7,7 +7,8 @@ import { Folder, Plus, Star, GitFork, Lock, Globe, AlertCircle, RefreshCw, Clock
 import { Badge } from '@/components/ui/badge'
 
 interface Repository {
-  id: number
+  id: string
+  github_repo_id: number
   name: string
   full_name: string
   private: boolean
@@ -21,7 +22,6 @@ interface Repository {
   changelogCount?: number
   lastSync?: string
   connectedAt?: string
-  repoId?: string
 }
 
 interface RepositoriesResponse {
@@ -90,16 +90,16 @@ export function RepositoriesList() {
     fetchRepositories(true)
   }
 
-  const handleConnect = async (repoId: number, repoFullName: string) => {
+  const handleConnect = async (githubRepoId: number, repoFullName: string) => {
     try {
-      setConnectingRepos(prev => new Set(prev).add(repoId))
+      setConnectingRepos(prev => new Set(prev).add(githubRepoId))
       
       const response = await fetch('/api/repositories/connect', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ repoId, repoFullName }),
+        body: JSON.stringify({ repoId: githubRepoId, repoFullName }),
       })
 
       if (!response.ok) {
@@ -118,26 +118,34 @@ export function RepositoriesList() {
     } finally {
       setConnectingRepos(prev => {
         const newSet = new Set(prev)
-        newSet.delete(repoId)
+        newSet.delete(githubRepoId)
         return newSet
       })
     }
   }
 
-  const handleView = (repoId: number) => {
+  const handleView = (githubRepoId: number) => {
     // TODO: Implement view changelogs logic
-    console.log('Viewing changelogs for repository:', repoId)
+    console.log('Viewing changelogs for repository:', githubRepoId)
   }
 
-  const handleGenerate = async (repoId: number, repoDbId: string) => {
+  const handleGenerate = async (githubRepoId: number, repoDbId: string, repoFullName: string) => {
     try {
-      setGeneratingRepos(prev => new Set(prev).add(repoId))
+      setGeneratingRepos(prev => new Set(prev).add(githubRepoId))
       
-      const response = await fetch(`/api/repositories/${repoDbId}/changelogs/generate`, {
+      if (!repoDbId || repoDbId.trim() === '') {
+        throw new Error('Repository ID is missing. Please reconnect the repository.')
+      }
+      
+      const response = await fetch('/api/repositories/changelogs/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          repoId: repoDbId,
+          repoFullName: repoFullName
+        }),
       })
 
       if (!response.ok) {
@@ -159,7 +167,7 @@ export function RepositoriesList() {
     } finally {
       setGeneratingRepos(prev => {
         const newSet = new Set(prev)
-        newSet.delete(repoId)
+        newSet.delete(githubRepoId)
         return newSet
       })
     }
@@ -297,13 +305,13 @@ export function RepositoriesList() {
         </Card>
       )}
 
-      {message && (
+      {/* {message && (
         <Card className="border-green-500 bg-green-50">
           <CardContent className="p-4">
             <p className="text-green-800 text-sm">{message}</p>
           </CardContent>
         </Card>
-      )}
+      )} */}
       
       <div className="space-y-4">
         {repositories.map((repo) => (
@@ -375,18 +383,18 @@ export function RepositoriesList() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleView(repo.id)}
+                        onClick={() => handleView(repo.github_repo_id)}
                         className="border-black text-black hover:bg-black hover:text-white"
                       >
                         View
                       </Button>
                       <Button
                         size="sm"
-                        onClick={() => handleGenerate(repo.id, repo.repoId || '')}
-                        disabled={generatingRepos.has(repo.id) || !repo.repoId}
+                        onClick={() => handleGenerate(repo.github_repo_id, repo.id, repo.full_name)}
+                        disabled={generatingRepos.has(repo.github_repo_id) || !repo.id}
                         className="bg-black text-white hover:bg-gray-800 disabled:opacity-50"
                       >
-                        {generatingRepos.has(repo.id) ? (
+                        {generatingRepos.has(repo.github_repo_id) ? (
                           'Generating...'
                         ) : (
                           'Generate'
@@ -396,11 +404,11 @@ export function RepositoriesList() {
                   ) : (
                     <Button
                       size="sm"
-                      onClick={() => handleConnect(repo.id, repo.full_name)}
-                      disabled={connectingRepos.has(repo.id)}
+                      onClick={() => handleConnect(repo.github_repo_id, repo.full_name)}
+                      disabled={connectingRepos.has(repo.github_repo_id)}
                       className="bg-black text-white hover:bg-gray-800 disabled:opacity-50"
                     >
-                      {connectingRepos.has(repo.id) ? (
+                      {connectingRepos.has(repo.github_repo_id) ? (
                         'Connecting...'
                       ) : (
                         <>

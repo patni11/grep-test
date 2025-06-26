@@ -148,7 +148,6 @@ Commits Collection: (for changelog generation)
 // /api/repositories/[id]/disconnect  
 // /api/repositories/[id]/changelogs
 // /api/repositories/[id]/changelogs/generate
-// /api/repositories/sync - Manual sync with GitHub
 ```
 
 ## Step 5: Data Synchronization Strategy

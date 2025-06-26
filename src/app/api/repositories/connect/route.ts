@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
         const allRepos = await githubService.getAllRepositories()
         const foundRepo = allRepos.find(repo => repo.id === repoId)
         if (!foundRepo) {
+            console.log("repository not found api/repos/connect")
           return NextResponse.json({ error: 'Repository not found' }, { status: 404 })
         }
         gitRepo = foundRepo

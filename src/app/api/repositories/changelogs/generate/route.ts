@@ -2,17 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 import { GitHubService, GitHubCommit } from '@/lib/github'
-import { getRepositoryById } from '@/lib/db/repositories'
+import { checkUserRepositoryAccess } from '@/lib/db/repositories'
 import { 
   createChangelog, 
   generateChangelogContent, 
   storeCommits 
 } from '@/lib/db/changelogs'
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     
@@ -20,17 +17,23 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const repoId = params.id
+    // Get repository data from request body
+    const { repoId, repoFullName } = await request.json()
 
-    // Get repository from database
-    const repository = await getRepositoryById(repoId)
-    if (!repository) {
-      return NextResponse.json({ error: 'Repository not found' }, { status: 404 })
+    if (!repoId || !repoFullName) {
+      return NextResponse.json({ 
+        error: 'Repository ID and full name are required' 
+      }, { status: 400 })
     }
 
-    // Verify repository belongs to user
-    if (repository.user_id !== session.user.id) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+    // Check if user has access to this repository
+    const repository = await checkUserRepositoryAccess(session.user.id, repoId, repoFullName)
+    //console.log("repository", repository)
+    
+    if (!repository) {
+      return NextResponse.json({ 
+        error: 'Repository not found or access denied' 
+      }, { status: 404 })
     }
 
     const githubService = new GitHubService(session.accessToken)
@@ -38,7 +41,7 @@ export async function POST(
 
     try {
       // Fetch latest commits from GitHub
-      console.log(`Fetching commits for ${repository.repo_full_name}...`)
+      //console.log(`Fetching commits for ${repository.repo_full_name}...`)
       const githubCommits: GitHubCommit[] = await githubService.getLatestCommits(owner, repo, 20)
 
       if (githubCommits.length === 0) {
@@ -59,11 +62,13 @@ export async function POST(
       // Store commits in our database for future reference
       await storeCommits(repoId, commitData)
 
-      // Generate changelog content
-      const { title, content, version } = generateChangelogContent({
+      // Generate changelog content using AI
+      const { title, content, version } = await generateChangelogContent({
         commits: commitData,
         repoName: repository.repo_name,
-        repoFullName: repository.repo_full_name
+        repoFullName: repository.repo_full_name,
+        repoUrl: repository.repo_url,
+        isPrivate: repository.is_private
       })
 
       // Create changelog in database

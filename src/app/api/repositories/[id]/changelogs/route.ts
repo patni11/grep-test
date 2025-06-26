@@ -20,6 +20,7 @@ export async function GET(
     // Get repository from database
     const repository = await getRepositoryById(repoId)
     if (!repository) {
+        console.log("Repository not found api/repos/id/changelogs")
       return NextResponse.json({ error: 'Repository not found' }, { status: 404 })
     }
 
